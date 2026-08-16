@@ -44,7 +44,24 @@ function required(name: string): string {
   return value.trim();
 }
 
+/** Host and database only — never the password. */
+function describeTarget(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.hostname}:${u.port || "5432"}${u.pathname}`;
+  } catch {
+    return "(unparseable DATABASE_URL)";
+  }
+}
+
 async function main() {
+  console.log("");
+  console.log(`  Target: ${describeTarget(databaseUrl!)}`);
+  if (/localhost|127\.0\.0\.1/.test(databaseUrl!)) {
+    console.log("  This is a LOCAL database. For Supabase, pass DATABASE_URL inline.");
+  }
+  console.log("");
+
   const email = required("ADMIN_EMAIL").toLowerCase();
   const password = required("ADMIN_PASSWORD");
   const firstName = required("ADMIN_FIRST_NAME");
@@ -120,7 +137,29 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
+  .catch((e: unknown) => {
+    const code = (e as { code?: string })?.code;
+
+    if (code === "P2021" || /does not exist in the current database/.test(String(e))) {
+      console.error("");
+      console.error("  The tables are not there yet. Run the migrations first:");
+      console.error("");
+      console.error("    DIRECT_URL='<direct or session-pooler URL>' npx prisma migrate deploy");
+      console.error("");
+      process.exit(1);
+    }
+
+    if (code === "P1001" || /Can't reach database server/.test(String(e))) {
+      console.error("");
+      console.error("  Could not reach the database.");
+      console.error("");
+      console.error("  On Supabase the direct connection is IPv6-only on newer projects.");
+      console.error("  If your network is IPv4, use the session pooler URL instead");
+      console.error("  (port 5432 on the ...pooler.supabase.com host).");
+      console.error("");
+      process.exit(1);
+    }
+
     console.error(e);
     process.exit(1);
   })
