@@ -1,0 +1,254 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACLC One — design tokens
+
+   Crimson leads. It is the colour of the AMA Education System that ACLC
+   belongs to, so it carries the institution: the mark, primary actions,
+   links, anything the school is saying with its own voice.
+
+   Navy carries weight, not identity — large dark surfaces like the hero and
+   the floor stack, where a wall of crimson would shout. The pairing is the
+   point: crimson for what you act on, navy for what you read against.
+
+   One consequence worth stating, because it drove the rest of this file:
+   crimson can no longer mean "danger". A brand colour that also signals an
+   absence teaches people to ignore it. So attendance keeps its own set —
+   green, amber, and a deep maroon that is deliberately darker and cooler
+   than the brand, and shown outlined rather than filled so the two never
+   compete on the same screen.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* — Crimson: the institution ——————————————————————————————————————— */
+  --color-brand-50: #fef2f3;
+  --color-brand-100: #fde0e3;
+  --color-brand-200: #fbc5cc;
+  --color-brand-300: #f79ba8;
+  --color-brand-400: #ee6379;
+  --color-brand-500: #de3450;
+  --color-brand-600: #c8102e;
+  --color-brand-700: #a6192e;
+  --color-brand-800: #8a1428;
+  --color-brand-900: #6d1021;
+  --color-brand-950: #440a14;
+
+  /* — Navy: weight and depth, never identity ————————————————————————— */
+  --color-navy-50: #eff4fc;
+  --color-navy-100: #dce7f8;
+  --color-navy-200: #bccdf2;
+  --color-navy-300: #8dabe9;
+  --color-navy-400: #5580dc;
+  --color-navy-500: #2c5bcb;
+  --color-navy-600: #1a43ad;
+  --color-navy-700: #16358a;
+  --color-navy-800: #142c69;
+  --color-navy-900: #101f48;
+  --color-navy-950: #08122b;
+
+  /* — Attendance ————————————————————————————————————————————————————
+     Green and amber as before. Absent is maroon: darker and cooler than the
+     brand crimson, and used as an outline so a roster never reads as a row
+     of brand-coloured buttons. */
+  --color-present-50: #e8f6f0;
+  --color-present-500: #12916a;
+  --color-present-600: #0e7c5a;
+  --color-present-700: #0a5f46;
+
+  --color-late-50: #fdf4e7;
+  --color-late-500: #c2700a;
+  --color-late-600: #a35d05;
+  --color-late-700: #7d4704;
+
+  --color-absent-50: #fbf1f2;
+  --color-absent-100: #f6dfe1;
+  --color-absent-200: #ecc0c4;
+  --color-absent-300: #d9959c;
+  --color-absent-400: #b85f69;
+  --color-absent-500: #943742;
+  --color-absent-600: #782c35;
+  --color-absent-700: #5f232b;
+  --color-absent-800: #481a20;
+  --color-absent-900: #331216;
+
+  /* — Neutrals, warmed a touch toward the brand so greys sit with the
+       crimson rather than beside it ——————————————————————————————————— */
+  --color-slab-50: #faf8f8;
+  --color-slab-100: #f3efef;
+  --color-slab-200: #e7e0e1;
+  --color-slab-300: #cdc2c4;
+  --color-slab-400: #9c8d90;
+  --color-slab-500: #6f6265;
+  --color-slab-600: #554a4d;
+  --color-slab-700: #3a3234;
+  --color-slab-800: #241e20;
+  --color-slab-900: #150f11;
+  --color-slab-950: #0a0708;
+
+  /* — Type ————————————————————————————————————————————————————————————
+     The serif speaks, the sans operates, the mono records.
+
+     Serif is reserved for h1 and h2 — the places the school is talking in its
+     own voice. Card titles and list headings stay in the sans, because a
+     serif at 18px inside a dense roster reads fussy rather than authoritative.
+
+     Mono is not decoration: it marks every piece of school-issued data —
+     student numbers, room codes, times, percentages. If it came off an
+     official record, it's mono. */
+  --font-display: var(--font-display-face), ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-data), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-card: 0.875rem;
+  --radius-field: 0.625rem;
+
+  --shadow-card: 0 1px 2px rgb(21 15 17 / 0.04), 0 8px 24px -18px rgb(21 15 17 / 0.35);
+  --shadow-raised: 0 2px 4px rgb(21 15 17 / 0.06), 0 16px 32px -20px rgb(21 15 17 / 0.45);
+}
+
+/* ── Theme-dependent surfaces ─────────────────────────────────────────────
+   Light-first: this runs on phones outdoors in Ormoc daylight far more often
+   than it runs at night. Dark is a proper second design, not an inversion. */
+
+:root {
+  --page: #faf8f8;
+  --surface: #ffffff;
+  --surface-sunk: #f3efef;
+  --surface-invert: #150f11;
+  --hairline: #e7e0e1;
+  --hairline-strong: #cdc2c4;
+  --content: #150f11;
+  --content-muted: #554a4d;
+  --content-faint: #7d6f72;
+  --content-invert: #faf8f8;
+  --focus: #a6192e;
+  /* Structural hairline for the Swiss landing: the type colour itself,
+     not the soft grey used for card edges inside the app. */
+  --rule: #150f11;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0a0708;
+    --surface: #191315;
+    --surface-sunk: #110c0e;
+    --surface-invert: #faf8f8;
+    --hairline: #332a2d;
+    --hairline-strong: #4a3d41;
+    --content: #f3efef;
+    --content-muted: #bdaeb1;
+    --content-faint: #8d7e81;
+    --content-invert: #150f11;
+    --focus: #f79ba8;
+    --rule: #f3efef;
+  }
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
+  --color-surface-invert: var(--surface-invert);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-content: var(--content);
+  --color-content-muted: var(--content-muted);
+  --color-content-faint: var(--content-faint);
+  --color-content-invert: var(--content-invert);
+  --color-rule: var(--rule);
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  * {
+    border-color: var(--hairline);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--page);
+    color: var(--content);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Only h1 and h2 take the serif. A serif needs far less negative tracking
+     than a grotesque — the -0.02em that suited the old face closes this one
+     up until the counters fill in. */
+  h1, h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.011em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  /* h3 and h4 are interface furniture, so they inherit the sans from body. */
+  h3, h4 {
+    font-weight: 600;
+    letter-spacing: -0.006em;
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+
+  /* Every focusable thing gets a visible ring. Students tab through these
+     forms on cheap keyboards and screen readers. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+
+  /* Numbers that stack in columns must not dance as they update. */
+  table, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* School-issued data. Pairs with font-mono to mark anything that came off
+     an official record. */
+  .data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "zero" 1;
+  }
+
+  /* Section eyebrow — small, tracked-out, mono. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--content-faint);
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

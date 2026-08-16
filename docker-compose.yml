@@ -1,0 +1,141 @@
+# Pinned so the project — and therefore the database volume — does not depend
+# on what the checkout directory happens to be called. Without this, renaming
+# the folder silently points the app at a new, empty database and orphans the
+# old volume, which reads as "all the data vanished".
+name: aclc-one
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/immerse?schema=public
+      - AUTH_SECRET=${AUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      - NODE_ENV=production
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-local}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT}
+      - STORAGE_REGION=${STORAGE_REGION:-us-east-1}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-immerse-uploads}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_MODEL=${AI_MODEL:-gpt-4o-mini}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-resend}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@immerse.app}
+      - EMAIL_API_KEY=${EMAIL_API_KEY}
+      - ENABLE_AI=${ENABLE_AI:-true}
+      - ENABLE_BILLING=${ENABLE_BILLING:-false}
+      - ENABLE_OFFLINE_SYNC=${ENABLE_OFFLINE_SYNC:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - uploads:/app/uploads
+    networks:
+      - immerse-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    command: >
+      sh -c "npx prisma migrate deploy && { npx prisma db seed || echo 'seed skipped'; }"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/immerse?schema=public
+      - AUTH_SECRET=${AUTH_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - immerse-network
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_DB=immerse
+    ports:
+      # Host port is configurable: 5432 is often already taken by another
+      # project's Postgres. The container port never changes, so DATABASE_URL
+      # inside the network is unaffected.
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - immerse-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d immerse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  backup:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_DB=immerse
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-7}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:ro
+      - backups:/backups
+    networks:
+      - immerse-network
+    command: >
+      sh -c '
+        while true; do
+          sleep 86400;
+          echo "Starting daily backup...";
+          pg_dump -h db -U postgres -d immerse -F c -f "/backups/immerse_$$(date +%Y%m%d_%H%M%S).dump";
+          find /backups -name "immerse_*.dump" -mtime +$$BACKUP_RETENTION_DAYS -delete;
+          echo "Backup completed.";
+        done
+      '
+    depends_on:
+      - db
+    restart: unless-stopped
+    profiles:
+      - backup
+
+volumes:
+  postgres_data:
+  uploads:
+  backups:
+
+networks:
+  immerse-network:
+    driver: bridge

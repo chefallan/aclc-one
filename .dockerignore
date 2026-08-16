@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.next
+coverage
+# Every env file, not a list of three. The previous rules missed anything
+# like .env.backup or .env.production, and Dockerfile does COPY . . — so a
+# stray backup holding a real AUTH_SECRET went into the build context.
+.env*
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

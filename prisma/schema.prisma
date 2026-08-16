@@ -1,0 +1,1339 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+/// ACLC One serves one college, so these are school roles rather than tenant
+/// tiers. Only FACULTY and STUDENT can be self-registered; ADMIN and
+/// SUPERVISOR accounts are created by an administrator.
+enum UserRole {
+  ADMIN
+  FACULTY
+  STUDENT
+  /// External staff at a host company who sign off immersion hours. Never
+  /// self-registers — an admin creates the account when assigning a workplace.
+  SUPERVISOR
+}
+
+/// Anyone who signs up lands in PENDING and cannot sign in until an
+/// administrator approves them. Rejection is kept rather than deleted so a
+/// second attempt with the same details is visible to whoever reviews it.
+enum UserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  INACTIVE
+  SUSPENDED
+}
+
+enum AcademicYearStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ProgramStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SectionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  COMPLETED
+  DROPPED
+  TRANSFERRED
+}
+
+enum WorkplaceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ImmersionStatus {
+  NOT_STARTED
+  ACTIVE
+  COMPLETED
+  INCOMPLETE
+  CANCELLED
+}
+
+enum WorkSessionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ActivityLogStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CORRECTION_REQUESTED
+}
+
+enum TaskCategory {
+  TASK
+  TRAINING
+  MEETING
+  DOCUMENTATION
+  BREAK
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  INCOMPLETE
+  EXCUSED
+  VERIFIED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  CORRECTION_REQUESTED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CORRECTION_REQUESTED
+}
+
+enum AiSummaryType {
+  DAILY
+  WEEKLY
+  FINAL
+}
+
+enum AiSummaryStatus {
+  GENERATED
+  EDITED
+  APPROVED
+  DISCARDED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  REGISTER
+  PASSWORD_RESET
+  PASSWORD_CHANGE
+  TIME_IN
+  TIME_OUT
+  ACTIVITY_CREATED
+  ACTIVITY_MODIFIED
+  PHOTO_UPLOADED
+  TEACHER_APPROVED
+  SUPERVISOR_VERIFIED
+  CORRECTION_REQUESTED
+  REPORT_GENERATED
+  USER_CREATED
+  ROLE_CHANGED
+  ORGANIZATION_CHANGED
+  SETTINGS_CHANGED
+  LOGIN_FAILED
+  ACCOUNT_LOCKED
+  SUSPICIOUS_ACTIVITY
+  PERMISSION_DENIED
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+enum NotificationType {
+  HOURLY_LOG_REMINDER
+  MISSING_LOG
+  TIME_OUT_REMINDER
+  SUPERVISOR_VERIFICATION_REQUEST
+  TEACHER_REVIEW_REQUEST
+  CORRECTION_REQUEST
+  CLASS_SESSION_STARTED
+  CLASS_SESSION_ENDED
+  ATTENDANCE_MARKED
+  ATTENDANCE_MISSING
+  REPORT_GENERATED
+}
+
+enum ReportFormat {
+  PDF
+  CSV
+  EXCEL
+}
+
+// ─── THE SCHOOL ──────────────────────────────────────────────────────────────
+//
+// One row. ACLC One serves ACLC College of Ormoc and nothing else, so this
+// holds the school's own profile and the rules it configures — not a tenant.
+// Nothing else in the schema points at it.
+
+model School {
+  id            String             @id @default(cuid())
+  name          String
+  legalName     String?            @map("legal_name")
+  logo          String?
+  address       String?
+  contactEmail  String?            @map("contact_email")
+  contactPhone  String?            @map("contact_phone")
+  timezone      String             @default("UTC")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  // Attendance rules. Defaults match what was previously hardcoded in the
+  // check-in routes, so behaviour is unchanged until a school edits them.
+  /// Minutes after a session starts before a check-in counts as LATE.
+  lateGraceMinutes    Int @default(15) @map("late_grace_minutes")
+  /// How long a displayed class code stays valid, in minutes.
+
+
+  @@map("school")
+}
+
+// ─── USER / AUTH ───────────────────────────────────────────────────────────────
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  passwordHash      String     @map("password_hash")
+  firstName         String     @map("first_name")
+  lastName          String     @map("last_name")
+  middleName        String?    @map("middle_name")
+  suffix            String?
+  phone             String?
+  profilePhoto      String?    @map("profile_photo")
+  role              UserRole
+  status            UserStatus @default(PENDING)
+  emailVerifiedAt   DateTime?  @map("email_verified_at")
+  lastLoginAt       DateTime?  @map("last_login_at")
+  failedLoginAttempts Int      @default(0) @map("failed_login_attempts")
+  lockedUntil       DateTime?  @map("locked_until")
+  /// Student number or faculty ID, as typed at sign-up. The claim is checked
+  /// by an administrator at approval — it is not proof of anything on its own.
+  idNumber          String?    @map("id_number")
+  approvedAt        DateTime?  @map("approved_at")
+  approvedById      String?    @map("approved_by_id")
+  rejectionReason   String?    @map("rejection_reason")
+  resetToken        String?    @unique @map("reset_token")
+  resetTokenExpiry  DateTime?  @map("reset_token_expiry")
+  mfaEnabled        Boolean    @default(false) @map("mfa_enabled")
+  mfaSecret         String?    @map("mfa_secret")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+
+  studentProfile   StudentProfile?
+  supervisorRecord WorkplaceSupervisor?
+  teacherSections  Section[]       @relation("SectionAdviser")
+  classSessions    ClassSession[]
+  coordinatorAssignments ImmersionAssignment[] @relation("CoordinatorAssignment")
+  teacherAssignments     ImmersionAssignment[] @relation("TeacherAssignment")
+  teacherReviews         TeacherReview[]
+  auditLogsAsActor AuditLog[]
+  notifications    Notification[]
+  noteFolders      NoteFolder[]
+  notes            Note[]
+  conversations    Conversation[]
+  scheduleEntries  ScheduleEntry[]
+  staffDirectoryEntry StaffDirectoryEntry?
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+// ─── ACADEMIC STRUCTURE ──────────────────────────────────────────────────────
+
+model AcademicYear {
+  id        String             @id @default(cuid())
+  name      String
+  startDate DateTime           @map("start_date")
+  endDate   DateTime           @map("end_date")
+  status    AcademicYearStatus @default(ACTIVE)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+
+  sections           Section[]
+  studentEnrollments StudentEnrollment[]
+  immersionPrograms  ImmersionProgram[]
+  immersionAssignments ImmersionAssignment[]
+  attendanceRecords  AttendanceRecord[]
+  aiSummaries        AiSummary[]
+  reports            Report[]
+
+  @@unique([name])
+  @@index([status])
+  @@map("academic_years")
+}
+
+model Program {
+  id          String       @id @default(cuid())
+  code        String
+  name        String
+  description String?
+  status      ProgramStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+
+  sections           Section[]
+  studentEnrollments StudentEnrollment[]
+  reports            Report[]
+
+  @@unique([code])
+  @@map("programs")
+}
+
+model Section {
+  id        String        @id @default(cuid())
+  name      String
+  yearLevel Int           @map("year_level")
+  status    SectionStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  programId String  @map("program_id")
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  adviserId String? @map("adviser_id")
+  adviser   User?   @relation("SectionAdviser", fields: [adviserId], references: [id])
+
+  studentEnrollments StudentEnrollment[]
+  reports            Report[]
+  classSessions      ClassSession[]
+  scheduleEntries SectionScheduleEntry[]
+
+
+  @@unique([academicYearId, programId, name])
+  @@index([academicYearId])
+  @@index([programId])
+  @@index([adviserId])
+  @@map("sections")
+}
+
+// ─── STUDENT IDENTITY & ENROLLMENT ───────────────────────────────────────────
+
+model StudentProfile {
+  /// Which timetable this student reads. Section by default: the registrar
+  /// maintains it and everyone stays in step.
+  scheduleSource ScheduleSource @default(SECTION) @map("schedule_source")
+  id              String    @id @default(cuid())
+  studentNumber   String    @map("student_number")
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  middleName      String?   @map("middle_name")
+  suffix          String?
+  dateOfBirth     DateTime? @map("date_of_birth")
+  contactEmail    String?   @map("contact_email")
+  contactPhone    String?   @map("contact_phone")
+  emergencyName   String?   @map("emergency_name")
+  emergencyPhone  String?   @map("emergency_phone")
+  emergencyRelation String? @map("emergency_relation")
+  profilePhoto    String?   @map("profile_photo")
+  qrCodeToken     String?   @unique @map("qr_code_token") // Unique token for QR attendance
+  rfidTag         String?   @unique @map("rfid_tag")     // Optional RFID for tap attendance
+  status          UserStatus @default(ACTIVE)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
+  enrollments        StudentEnrollment[]
+  immersionAssignments ImmersionAssignment[]
+  workSessions       WorkSession[]
+  activityLogs       ActivityLog[]
+  photos             PhotoEvidence[]
+  attendanceRecords  AttendanceRecord[]
+  classAttendances   ClassAttendance[]
+  supervisorVerifications SupervisorVerification[]
+  teacherReviews     TeacherReview[]
+  aiSummaries        AiSummary[]
+  reports            Report[]
+  libraryBorrowRecords LibraryBorrowRecord[]
+
+  @@unique([studentNumber])
+  queueEntries QueueEntry[]
+
+  @@index([userId])
+  @@map("student_profiles")
+}
+
+model StudentEnrollment {
+  id              String          @id @default(cuid())
+  yearLevel       Int             @map("year_level")
+  enrollmentStatus EnrollmentStatus @default(ENROLLED) @map("enrollment_status")
+  enrolledAt      DateTime        @default(now()) @map("enrolled_at")
+  completedAt     DateTime?       @map("completed_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  programId String  @map("program_id")
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  sectionId String  @map("section_id")
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  immersionAssignments ImmersionAssignment[]
+
+  @@unique([studentId, academicYearId])
+  @@index([studentId])
+  @@index([academicYearId])
+  @@index([programId])
+  @@index([sectionId])
+  @@map("student_enrollments")
+}
+
+// ─── WORKPLACE ─────────────────────────────────────────────────────────────────
+
+model Workplace {
+  id            String         @id @default(cuid())
+  name          String
+  industry      String?
+  address       String?
+  contactEmail  String?        @map("contact_email")
+  contactPhone  String?        @map("contact_phone")
+  contactPerson String?        @map("contact_person")
+  status        WorkplaceStatus @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+
+  supervisors        WorkplaceSupervisor[]
+  immersionAssignments ImmersionAssignment[]
+  reports            Report[]
+
+  @@index([status])
+  @@map("workplaces")
+}
+
+model WorkplaceSupervisor {
+  id       String @id @default(cuid())
+  position String
+  status   UserStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  workplaceId String    @map("workplace_id")
+  workplace   Workplace @relation(fields: [workplaceId], references: [id], onDelete: Cascade)
+
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
+  immersionAssignments ImmersionAssignment[]
+  supervisorVerifications SupervisorVerification[]
+
+  @@index([workplaceId])
+  @@map("workplace_supervisors")
+}
+
+// ─── IMMERSION PROGRAM & ASSIGNMENT ──────────────────────────────────────────
+
+model ImmersionProgram {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  requiredHours Int      @map("required_hours")
+  startDate     DateTime @map("start_date")
+  endDate       DateTime @map("end_date")
+  status        ImmersionStatus @default(NOT_STARTED)
+  rules         Json?    // Configurable rules: breaks, overtime, min session, max daily, rounding
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  immersionAssignments ImmersionAssignment[]
+  reports            Report[]
+
+  @@index([academicYearId])
+  @@index([status])
+  @@map("immersion_programs")
+}
+
+model ImmersionAssignment {
+  id              String          @id @default(cuid())
+  startDate       DateTime        @map("start_date")
+  expectedEndDate DateTime        @map("expected_end_date")
+  actualEndDate   DateTime?       @map("actual_end_date")
+  requiredHours   Int             @map("required_hours")
+  completedHours  Decimal         @default(0) @map("completed_hours") @db.Decimal(6, 2)
+  status          ImmersionStatus @default(NOT_STARTED)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  enrollmentId String          @map("enrollment_id")
+  enrollment   StudentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  immersionProgramId String          @map("immersion_program_id")
+  immersionProgram   ImmersionProgram @relation(fields: [immersionProgramId], references: [id], onDelete: Cascade)
+
+  workplaceId String    @map("workplace_id")
+  workplace   Workplace @relation(fields: [workplaceId], references: [id], onDelete: Cascade)
+
+  supervisorId String?             @map("supervisor_id")
+  supervisor   WorkplaceSupervisor? @relation(fields: [supervisorId], references: [id])
+
+  coordinatorId String? @map("coordinator_id")
+  coordinator   User?   @relation("CoordinatorAssignment", fields: [coordinatorId], references: [id])
+
+  teacherId String? @map("teacher_id")
+  teacher   User?   @relation("TeacherAssignment", fields: [teacherId], references: [id])
+
+
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  workSessions       WorkSession[]
+  activityLogs       ActivityLog[]
+  attendanceRecords  AttendanceRecord[]
+  supervisorVerifications SupervisorVerification[]
+  teacherReviews     TeacherReview[]
+  aiSummaries        AiSummary[]
+  reports            Report[]
+
+  @@index([studentId])
+  @@index([workplaceId])
+  @@index([supervisorId])
+  @@index([coordinatorId])
+  @@index([teacherId])
+  @@index([status])
+  @@index([academicYearId])
+  @@map("immersion_assignments")
+}
+
+// ─── TIME TRACKING ───────────────────────────────────────────────────────────
+
+model WorkSession {
+  id              String          @id @default(cuid())
+  timeIn          DateTime        @map("time_in")
+  timeOut         DateTime?       @map("time_out")
+  durationMinutes Int?            @map("duration_minutes")
+  timezone        String          @default("UTC")
+  latitude        Decimal?        @db.Decimal(10, 8)
+  longitude       Decimal?        @db.Decimal(11, 8)
+  locationAccuracy Decimal?       @map("location_accuracy") @db.Decimal(6, 2)
+  timeInPhoto     String?         @map("time_in_photo")
+  timeOutPhoto    String?         @map("time_out_photo")
+  deviceInfo      Json?           @map("device_info")
+  notes           String?
+  status          WorkSessionStatus @default(ACTIVE)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  assignmentId String             @map("assignment_id")
+  assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+
+  activityLogs ActivityLog[]
+  attendanceRecords AttendanceRecord[]
+
+  @@index([studentId])
+  @@index([assignmentId])
+  @@index([timeIn])
+  @@index([status])
+  @@map("work_sessions")
+}
+
+// ─── ACTIVITY LOGS ───────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id                String           @id @default(cuid())
+  timestamp         DateTime
+  taskDescription   String           @map("task_description")
+  learningDescription String?        @map("learning_description")
+  taskCategory      TaskCategory     @map("task_category")
+  latitude          Decimal?         @db.Decimal(10, 8)
+  longitude         Decimal?         @db.Decimal(11, 8)
+  status            ActivityLogStatus @default(DRAFT)
+  teacherRemarks      String?          @map("teacher_remarks")
+  supervisorRemarks   String?          @map("supervisor_remarks")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  assignmentId String             @map("assignment_id")
+  assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  workSessionId String      @map("work_session_id")
+  workSession   WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
+
+
+  photos PhotoEvidence[]
+
+  @@index([studentId])
+  @@index([assignmentId])
+  @@index([workSessionId])
+  @@index([timestamp])
+  @@index([status])
+  @@map("activity_logs")
+}
+
+// ─── PHOTO EVIDENCE ──────────────────────────────────────────────────────────
+
+model PhotoEvidence {
+  id          String   @id @default(cuid())
+  originalUrl String   @map("original_url")
+  thumbnailUrl String? @map("thumbnail_url")
+  fileSize    Int      @map("file_size")
+  mimeType    String   @map("mime_type")
+  width       Int?
+  height      Int?
+  takenAt     DateTime? @map("taken_at")
+  latitude    Decimal? @db.Decimal(10, 8)
+  longitude   Decimal? @db.Decimal(11, 8)
+  deviceInfo  Json?    @map("device_info")
+  syncStatus  String   @default("synced") @map("sync_status")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  activityLogId String      @map("activity_log_id")
+  activityLog   ActivityLog @relation(fields: [activityLogId], references: [id], onDelete: Cascade)
+
+
+  @@index([studentId])
+  @@index([activityLogId])
+  @@index([syncStatus])
+  @@map("photo_evidence")
+}
+
+// ─── ATTENDANCE ──────────────────────────────────────────────────────────────
+
+model AttendanceRecord {
+  id              String           @id @default(cuid())
+  date            DateTime         @db.Date
+  timeIn          DateTime?        @map("time_in")
+  timeOut         DateTime?        @map("time_out")
+  workedMinutes   Int?             @map("worked_minutes")
+  breakMinutes    Int              @default(0) @map("break_minutes")
+  lateMinutes     Int              @default(0) @map("late_minutes")
+  earlyDepartureMinutes Int        @default(0) @map("early_departure_minutes")
+  status          AttendanceStatus @default(ABSENT)
+  notes           String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  assignmentId String             @map("assignment_id")
+  assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  workSessionId String?     @map("work_session_id")
+  workSession   WorkSession? @relation(fields: [workSessionId], references: [id])
+
+
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date])
+  @@index([studentId])
+  @@index([assignmentId])
+  @@index([date])
+  @@index([status])
+  @@index([academicYearId])
+  @@map("attendance_records")
+}
+
+// ─── SUPERVISOR VERIFICATION ───────────────────────────────────────────────────
+
+model SupervisorVerification {
+  id        String             @id @default(cuid())
+  date      DateTime           @db.Date
+  hours     Decimal            @db.Decimal(5, 2)
+  logCount  Int                @map("log_count")
+  remarks   String?
+  status    VerificationStatus @default(PENDING)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  supervisorId String             @map("supervisor_id")
+  supervisor   WorkplaceSupervisor @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  assignmentId String             @map("assignment_id")
+  assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+
+  @@unique([assignmentId, date])
+  @@index([supervisorId])
+  @@index([studentId])
+  @@index([date])
+  @@index([status])
+  @@map("supervisor_verifications")
+}
+
+// ─── TEACHER REVIEW ──────────────────────────────────────────────────────────
+
+model TeacherReview {
+  id        String       @id @default(cuid())
+  date      DateTime     @db.Date
+  remarks   String?
+  status    ReviewStatus @default(PENDING)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  teacherId String @map("teacher_id")
+  teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  assignmentId String             @map("assignment_id")
+  assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+
+  @@unique([assignmentId, date])
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([date])
+  @@index([status])
+  @@map("teacher_reviews")
+}
+
+// ─── AI SUMMARIES ────────────────────────────────────────────────────────────
+
+model AiSummary {
+  id              String          @id @default(cuid())
+  type            AiSummaryType
+  content         Json
+  rawInput        Json?           @map("raw_input")
+  status          AiSummaryStatus @default(GENERATED)
+  generatedAt     DateTime        @default(now()) @map("generated_at")
+  approvedAt      DateTime?       @map("approved_at")
+  editedContent   Json?           @map("edited_content")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  assignmentId String             @map("assignment_id")
+  assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([assignmentId])
+  @@index([type])
+  @@index([status])
+  @@index([academicYearId])
+  @@map("ai_summaries")
+}
+
+// ─── BILLING / SUBSCRIPTION ──────────────────────────────────────────────────
+
+// ─── AUDIT LOG ─────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String     @id @default(cuid())
+  action     AuditAction
+  entity     String
+  entityId   String     @map("entity_id")
+  metadata   Json?
+  ipAddress  String?    @map("ip_address")
+  userAgent  String?    @map("user_agent")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  actorId String? @map("actor_id")
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
+
+model Notification {
+  id        String              @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String
+  channel   NotificationChannel @default(IN_APP)
+  isRead    Boolean             @default(false) @map("is_read")
+  sentAt    DateTime?           @map("sent_at")
+  readAt    DateTime?           @map("read_at")
+  metadata  Json?
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@map("notifications")
+}
+
+// ─── REPORTS ─────────────────────────────────────────────────────────────────
+
+model Report {
+  id          String     @id @default(cuid())
+  type        ReportType
+  format      ReportFormat
+  title       String
+  fileUrl     String?    @map("file_url")
+  fileSize    Int?       @map("file_size")
+  parameters  Json?
+  generatedAt DateTime   @default(now()) @map("generated_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+
+  academicYearId String?     @map("academic_year_id")
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  programId String?  @map("program_id")
+  program   Program? @relation(fields: [programId], references: [id])
+
+  sectionId String?  @map("section_id")
+  section   Section? @relation(fields: [sectionId], references: [id])
+
+  studentId String?         @map("student_id")
+  student   StudentProfile? @relation(fields: [studentId], references: [id])
+
+  assignmentId String?             @map("assignment_id")
+  assignment   ImmersionAssignment? @relation(fields: [assignmentId], references: [id])
+
+  immersionProgramId String?     @map("immersion_program_id")
+  immersionProgram   ImmersionProgram? @relation(fields: [immersionProgramId], references: [id])
+
+  workplaceId String?    @map("workplace_id")
+  workplace   Workplace? @relation(fields: [workplaceId], references: [id])
+
+  @@index([type])
+  @@index([generatedAt])
+  @@index([immersionProgramId])
+  @@map("reports")
+}
+
+enum ReportType {
+  STUDENT_DAILY
+  STUDENT_WEEKLY
+  STUDENT_MONTHLY
+  CLASS_ATTENDANCE
+  ATTENDANCE
+  SECTION_ATTENDANCE
+  PROGRAM_ATTENDANCE
+  SCHOOL_WIDE
+  LIBRARY_USAGE
+  STUDY_BUDDY_MATCHES
+}
+
+// ─── ONLINE LIBRARY ──────────────────────────────────────────────────────────
+
+enum LibraryItemType {
+  BOOK
+  EBOOK
+  JOURNAL
+  THESIS
+  MODULE
+  HANDOUT
+  VIDEO
+  AUDIO
+  LINK
+}
+
+enum LibraryItemStatus {
+  AVAILABLE
+  BORROWED
+  RESERVED
+  UNAVAILABLE
+  ARCHIVED
+}
+
+model LibraryCategory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#3b82f6")
+  icon        String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+
+  items LibraryItem[]
+
+  @@unique([name])
+  @@map("library_categories")
+}
+
+model LibraryItem {
+  id          String            @id @default(cuid())
+  title       String
+  author      String?
+  publisher   String?
+  isbn        String?
+  description String?           @db.Text
+  type        LibraryItemType
+  status      LibraryItemStatus @default(AVAILABLE)
+  fileUrl     String?           @map("file_url")
+  fileSize    Int?              @map("file_size")
+  coverImage  String?           @map("cover_image")
+  externalUrl String?           @map("external_url")
+  tags        String[]
+  yearPublished Int?            @map("year_published")
+  totalCopies Int               @default(1) @map("total_copies")
+  availableCopies Int           @default(1) @map("available_copies")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  categoryId String          @map("category_id")
+  category   LibraryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+
+  borrowRecords LibraryBorrowRecord[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([type])
+  @@map("library_items")
+}
+
+model LibraryBorrowRecord {
+  id         String    @id @default(cuid())
+  borrowedAt DateTime  @default(now()) @map("borrowed_at")
+  dueDate    DateTime  @map("due_date")
+  returnedAt DateTime? @map("returned_at")
+  status     String    @default("BORROWED") // BORROWED, RETURNED, OVERDUE, LOST
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  itemId String      @map("item_id")
+  item   LibraryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+
+  @@index([itemId])
+  @@index([studentId])
+  @@index([status])
+  @@map("library_borrow_records")
+}
+
+// ─── NOTES LOCKER ──────────────────────────────────────────────────────────────
+
+enum NoteVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+model NoteFolder {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#f59e0b")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
+  notes Note[]
+
+  @@index([userId])
+  @@map("note_folders")
+}
+
+model Note {
+  id        String          @id @default(cuid())
+  title     String
+  content   String          @db.Text
+  summary   String?         @db.Text
+  tags      String[]
+  visibility NoteVisibility   @default(PRIVATE)
+  isPinned  Boolean          @default(false) @map("is_pinned")
+  isArchived Boolean         @default(false) @map("is_archived")
+  color     String?           @default("#ffffff")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  folderId String?    @map("folder_id")
+  folder   NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+
+  @@index([userId])
+  @@index([folderId])
+  @@index([visibility])
+  @@map("notes")
+}
+
+// ─── STUDY BUDDY ───────────────────────────────────────────────────────────────
+
+// ─── CLASS SESSION & QR ATTENDANCE ───────────────────────────────────────────
+
+model ClassSession {
+  id            String   @id @default(cuid())
+  date          DateTime @db.Date
+  startTime     DateTime @map("start_time")
+  endTime       DateTime @map("end_time")
+  room          String?
+  subject       String?
+  status        String   @default("SCHEDULED") // SCHEDULED, ACTIVE, CLOSED
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sectionId      String  @map("section_id")
+  section        Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  teacherId      String @map("teacher_id")
+  teacher        User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+
+  attendances ClassAttendance[]
+
+  @@index([sectionId])
+  @@index([teacherId])
+  @@index([date])
+  @@index([status])
+  @@map("class_sessions")
+}
+
+model ClassAttendance {
+  id          String           @id @default(cuid())
+  scannedAt   DateTime         @default(now()) @map("scanned_at")
+  method      String           @default("QR") // QR, MANUAL, RFID
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  classSessionId String       @map("class_session_id")
+  classSession   ClassSession @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+
+  @@unique([classSessionId, studentId])
+  @@index([classSessionId])
+  @@index([studentId])
+  @@index([scannedAt])
+  @@map("class_attendances")
+}
+
+// ─── STUDY BUDDY (AI ASSISTANT) ──────────────────────────────────────────────
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  title     String   @default("New chat")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@index([updatedAt])
+  @@map("conversations")
+}
+
+model ChatMessage {
+  id      String   @id @default(cuid())
+  role    ChatRole
+  content String   @db.Text
+
+  /// What the answer was grounded in — the student's own notes and library
+  /// items that were put in front of the model for this turn. Stored so a
+  /// student can see where an answer came from after the fact.
+  citations Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// ─── CAMPUS: STAFF FINDER & FLOOR STACK ──────────────────────────────────────
+//
+// The building is modelled as a stack of floors because indoors the useful
+// axis is vertical — a student needs to know how many flights up, not where
+// they are on a map.
+//
+// Presence is derived, never tracked. There is no continuous location here and
+// no location history: a staff member's state comes from their own toggle,
+// and a stale state expires to UNKNOWN rather than lying.
+
+enum PresenceStatus {
+  AT_DESK
+  STEPPED_OUT
+  LUNCH
+  IN_MEETING
+  IN_CLASS
+  OFF_CAMPUS
+  UNKNOWN
+}
+
+enum StaffVisibility {
+  VISIBLE
+  HIDDEN
+}
+
+enum QueueStatus {
+  WAITING
+  SERVING
+  SERVED
+  CANCELLED
+}
+
+model Floor {
+  id        String   @id @default(cuid())
+  /// Short label as people say it: "G", "2F", "3F".
+  label     String
+  /// What is on this floor, for the stack: "Library · Comlab 1–3".
+  name      String?
+  /// Ground is 0. Used to compute flights of stairs between two offices.
+  level     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+
+  offices Office[]
+
+  @@unique([level])
+  @@map("floors")
+}
+
+model Office {
+  id     String  @id @default(cuid())
+  name   String
+  /// "Window 2", "Rm 304".
+  room   String?
+  /// Local times as "HH:mm". Null means no published hours.
+  opensAt    String? @map("opens_at")
+  closesAt   String? @map("closes_at")
+  lunchStart String? @map("lunch_start")
+  lunchEnd   String? @map("lunch_end")
+  /// Landmark directions. Indoor positioning is unreliable and expensive;
+  /// landmarks are free and students already navigate by them.
+  directions String? @db.Text
+  /// Errand keys this office can settle, e.g. ["CLEARANCE","TOR"].
+  handles    String[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  floorId String @map("floor_id")
+  floor   Floor  @relation(fields: [floorId], references: [id], onDelete: Cascade)
+
+
+  staff        StaffDirectoryEntry[]
+  queueEntries QueueEntry[]
+
+  @@index([floorId])
+  @@map("offices")
+}
+
+model StaffDirectoryEntry {
+  id       String @id @default(cuid())
+  position String
+
+  /// Errands this person handles, narrowing the office's list.
+  handles  String[]
+
+  /// A staff member's own switch. HIDDEN removes them from every student-facing
+  /// list. Participation has to feel voluntary or the data stops being accurate.
+  visibility StaffVisibility @default(VISIBLE)
+
+  presenceStatus  PresenceStatus @default(UNKNOWN) @map("presence_status")
+  /// When the current state lapses, e.g. "Lunch till 1:00".
+  presenceUntil   DateTime?      @map("presence_until")
+  presenceNote    String?        @map("presence_note")
+  /// Always surfaced to students so they can judge freshness for themselves.
+  presenceUpdatedAt DateTime?    @map("presence_updated_at")
+
+  /// Drives the "~12 min each" estimate on a queue.
+  avgServiceMinutes Int @default(10) @map("avg_service_minutes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  officeId String? @map("office_id")
+  office   Office? @relation(fields: [officeId], references: [id], onDelete: SetNull)
+
+
+  @@index([officeId])
+  @@index([visibility])
+  @@map("staff_directory_entries")
+}
+
+model QueueEntry {
+  id       String      @id @default(cuid())
+  errand   String
+  status   QueueStatus @default(WAITING)
+  joinedAt DateTime    @default(now()) @map("joined_at")
+  servedAt DateTime?   @map("served_at")
+
+  officeId String @map("office_id")
+  office   Office @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+
+  @@index([officeId, status])
+  @@index([studentId])
+  @@map("queue_entries")
+}
+
+// ─── PERSONAL TIMETABLE ──────────────────────────────────────────────────────
+//
+// What a student plots at enrolment: the recurring weekly grid of subjects.
+// Distinct from ClassSession, which is a single dated meeting an instructor
+// opens for attendance. This is the plan; that is the record.
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model ScheduleEntry {
+  id String @id @default(cuid())
+
+  /// Subject code as the school writes it: "IT 402", "CC 105".
+  subjectCode  String  @map("subject_code")
+  subjectTitle String? @map("subject_title")
+
+  day Weekday
+
+  /// Wall-clock "HH:mm". A weekly timetable repeats, so it has no date and no
+  /// instant — storing a DateTime here would drag a timezone into something
+  /// that is simply "one o'clock, every Monday".
+  startTime String @map("start_time")
+  endTime   String @map("end_time")
+
+  room       String?
+  instructor String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Belongs to the person who plotted it — student or faculty alike.
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, day])
+  @@map("schedule_entries")
+}
+
+/// Where a student's timetable comes from. Following the section keeps them in
+/// step when the registrar changes something; a personal one is for irregular
+/// students, different electives, or anyone whose week genuinely differs.
+enum ScheduleSource {
+  SECTION
+  PERSONAL
+}
+
+/// The official timetable for a section — WADT-1C's week, maintained by an
+/// administrator. Students in that section read it rather than each retyping
+/// the same five subjects.
+model SectionScheduleEntry {
+  id String @id @default(cuid())
+
+  subjectCode  String  @map("subject_code")
+  subjectTitle String? @map("subject_title")
+
+  day Weekday
+
+  /// Wall-clock "HH:mm", same reasoning as the personal timetable: a weekly
+  /// schedule repeats and has no date.
+  startTime String @map("start_time")
+  endTime   String @map("end_time")
+
+  room       String?
+  instructor String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sectionId String  @map("section_id")
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId, day])
+  @@map("section_schedule_entries")
+}
