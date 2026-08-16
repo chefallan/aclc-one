@@ -4,7 +4,7 @@
  *
  * The hazard this exists to prevent: Vercel builds every branch and every pull
  * request. A plain `prisma migrate deploy` in the build command would let a
- * preview build alter the production database — and the person who opened the
+ * preview build alter the production database - and the person who opened the
  * pull request would have no idea it happened.
  *
  * So the rule is narrow. Migrations run only when VERCEL_ENV is exactly
@@ -28,7 +28,7 @@ if (env !== "production") {
 
 // prisma.config.ts prefers DIRECT_URL and falls back to DATABASE_URL. Migrate
 // needs a real session, so on Supabase this must not be the transaction
-// pooler — use the direct connection, or the session pooler on an IPv4-only
+// pooler - use the direct connection, or the session pooler on an IPv4-only
 // network.
 if (!process.env.DIRECT_URL && !process.env.DATABASE_URL) {
   console.error("");
@@ -43,6 +43,72 @@ if (!process.env.DIRECT_URL) {
   console.warn("  On Supabase that is the transaction pooler, which cannot hold");
   console.warn("  the advisory lock Migrate needs. Set DIRECT_URL if this fails.");
 }
+
+/**
+ * Prisma's own error for a malformed URL is "P1013: invalid port number",
+ * which sends you looking at the port - almost never the actual problem. The
+ * real cause is nearly always something in the value that a URL parser cannot
+ * read, and it is worth naming precisely.
+ *
+ * Nothing here prints the password or the URL.
+ */
+function diagnoseUrl(name, raw) {
+  const problems = [];
+
+  if (raw !== raw.trim()) {
+    problems.push("It has leading or trailing whitespace - often a newline picked up when pasting.");
+  }
+  const url = raw.trim();
+
+  if (/^["']|["']$/.test(url)) {
+    problems.push('It is wrapped in quotes. Vercel stores the value literally, so the quotes become part of it.');
+  }
+  if (url.includes("[") || url.includes("]")) {
+    problems.push("It still contains [ ] - the placeholder from Supabase, such as [YOUR-PASSWORD], was not replaced.");
+  }
+  if (!/^postgres(ql)?:\/\//.test(url)) {
+    problems.push("It does not begin with postgresql:// or postgres://.");
+  }
+
+  // Everything between the scheme and the last @ is the user info. A raw
+  // @ : / ? # inside the password shifts where the parser thinks the host and
+  // port begin, which is exactly how a valid password produces "invalid port".
+  const afterScheme = url.replace(/^postgres(ql)?:\/\//, "");
+  const lastAt = afterScheme.lastIndexOf("@");
+  if (lastAt !== -1) {
+    const userinfo = afterScheme.slice(0, lastAt);
+    const password = userinfo.slice(userinfo.indexOf(":") + 1);
+    const offenders = [...new Set((password.match(/[@/?#[\]%: ]/g) ?? []))];
+    if (offenders.length > 0) {
+      problems.push(
+        `The password contains ${offenders.map((c) => (c === " " ? "a space" : `"${c}"`)).join(", ")}, ` +
+          "which must be percent-encoded (@ becomes %40, : becomes %3A, / becomes %2F, # becomes %23)."
+      );
+    }
+    const hostPort = afterScheme.slice(lastAt + 1).split("/")[0];
+    const port = hostPort.includes(":") ? hostPort.slice(hostPort.lastIndexOf(":") + 1) : "";
+    if (port && !/^\d+$/.test(port)) {
+      problems.push(`The port reads as "${port}", which is not a number.`);
+    }
+  }
+
+  if (problems.length > 0) {
+    console.error("");
+    console.error(`  ${name} does not parse as a database URL:`);
+    console.error("");
+    for (const p of problems) console.error(`    - ${p}`);
+    console.error("");
+    console.error("  Expected shape (session pooler, which is what Migrate wants):");
+    console.error("    postgresql://postgres.REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres");
+    console.error("");
+    process.exit(1);
+  }
+}
+
+diagnoseUrl(
+  process.env.DIRECT_URL ? "DIRECT_URL" : "DATABASE_URL",
+  process.env.DIRECT_URL ?? process.env.DATABASE_URL
+);
 
 console.log("  Applying migrations to the production database...");
 
