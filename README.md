@@ -49,6 +49,79 @@ development only.
 Docker Compose pins its project name to `aclc-one`, so the database volume does
 not depend on what you called the checkout folder.
 
+## Deploying to Vercel with Supabase
+
+**1. Supabase.** Create the project, then take two URLs from *Connect*:
+
+| | |
+| --- | --- |
+| `DATABASE_URL` | **Transaction pooler**, port `6543`. Serverless functions each open their own pool, and the transaction pooler is what survives that. |
+| `DIRECT_URL` | Direct connection, port `5432`. Migrations only — Prisma Migrate needs a real session and cannot run through a pooler. |
+
+Leave `DATABASE_POOL_MAX` unset. The app uses a pool of 1 when it detects
+Vercel, because a handful of instances at 10 each will exhaust the project's
+connection cap and everything fails at once.
+
+**2. Migrate,** from your machine, with `DIRECT_URL` pointing at Supabase:
+
+```bash
+npx prisma migrate deploy
+```
+
+**3. Create the first administrator.** Do this before anyone tries to sign up.
+Sign-ups can only ever be PENDING, only an admin can approve them, and the demo
+seed refuses to run in production — so without this the deployment is a locked
+door, and sign-up itself returns 503 until the school record exists.
+
+```bash
+ADMIN_EMAIL=you@aclcormoc.edu.ph \
+ADMIN_PASSWORD='something long and unguessable' \
+ADMIN_FIRST_NAME=Maria ADMIN_LAST_NAME=Santos \
+npm run db:create-admin
+```
+
+It creates the school record too, never prints the password, and re-running
+promotes an existing account rather than failing.
+
+**Never run `npm run db:seed` against production.** Every account it creates
+shares one published password and one of them is an admin. It refuses when
+`NODE_ENV=production`.
+
+**4. Vercel environment variables:**
+
+```
+DATABASE_URL          Supabase transaction pooler (6543)
+DIRECT_URL            Supabase direct (5432)
+AUTH_SECRET           openssl rand -base64 32
+NEXTAUTH_URL          https://your-app.vercel.app
+APP_URL               https://your-app.vercel.app
+STORAGE_PROVIDER      cloudinary
+CLOUDINARY_*          cloud name, key, secret
+AI_PROVIDER           ollama
+OLLAMA_API_KEY        from ollama.com/settings/keys
+EMAIL_PROVIDER        resend
+EMAIL_FROM            an address on a domain verified in Resend
+EMAIL_API_KEY         Resend key
+```
+
+`STORAGE_PROVIDER` must be `cloudinary`. Vercel has no writable disk and the
+code refuses local storage in production.
+
+Resend is an HTTP API rather than SMTP, so there is no host or port to set —
+which is also why it works from a serverless function.
+
+### Known limits of running serverless
+
+**Rate limiting is per-instance.** `rate-limiter-flexible` is backed by memory
+here, and serverless instances neither share memory nor live long, so the
+sign-in and API limits are far weaker than they look. `REDIS_URL` and
+`RateLimiterRedis` are the fix; until then do not treat the limiter as
+brute-force protection.
+
+**Study Buddy needs a long function.** The chat route declares
+`maxDuration = 60` because a streamed answer routinely outlives the default.
+Sixty seconds is the Hobby ceiling.
+
 ## Scripts
 
 | Command | |
@@ -59,7 +132,8 @@ not depend on what you called the checkout folder.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run db:migrate` | Create a migration |
-| `npm run db:seed` | Reseed demo data |
+| `npm run db:seed` | Reseed demo data (development only) |
+| `npm run db:create-admin` | Create the first administrator — safe against production |
 | `npm run db:studio` | Prisma Studio — browse the database |
 
 ## What is in it

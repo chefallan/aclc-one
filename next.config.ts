@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // For the Dockerfile, which copies .next/standalone. Vercel produces its
+  // own output and does not need it, so it is left off there.
+  output: process.env.VERCEL ? undefined : "standalone",
   images: {
     unoptimized: true,
   },

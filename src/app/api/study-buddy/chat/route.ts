@@ -15,6 +15,13 @@ import {
 } from "@/lib/study-buddy/chat";
 import { generateRequestId } from "@/lib/utils";
 
+/**
+ * A grounded answer streams token by token and routinely runs past the ten
+ * seconds a serverless function gets by default, which would cut the reply off
+ * mid-sentence. Sixty is the ceiling on Vercel's Hobby plan.
+ */
+export const maxDuration = 60;
+
 const chatSchema = z.object({
   message: z.string().trim().min(1, "Type a question first.").max(4000),
   // nullish, not optional: starting a new chat sends conversationId: null,
