@@ -7,6 +7,8 @@ import { StudentDashboard } from "@/components/dashboard/student-dashboard";
 import { TeacherDashboard } from "@/components/dashboard/teacher-dashboard";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 import { SupervisorDashboard } from "@/components/dashboard/supervisor-dashboard";
+import { Card, CardContent } from "@/components/ui/card";
+import { ROLE_LABEL } from "@/lib/permissions";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -160,7 +162,36 @@ export default async function DashboardPage() {
     );
   }
 
-  // Admin / Coordinator / Super Admin
+  // Everything above returns for its own role. Reaching here used to mean
+  // "must be an admin", which was wrong in the one way that matters: a STUDENT
+  // whose studentProfileId is null matched no branch and was handed the
+  // administrator's school overview, complete with roll counts.
+  //
+  // Admin is now something you must be, not something you become by not
+  // matching anything else.
+  if (role !== "ADMIN") {
+    return (
+      <div className="mx-auto max-w-lg space-y-4">
+        <header>
+          <p className="eyebrow">{ROLE_LABEL[role as keyof typeof ROLE_LABEL] ?? role}</p>
+          <h1 className="mt-1 text-2xl font-semibold">Your account isn&rsquo;t set up yet</h1>
+        </header>
+        <Card>
+          <CardContent className="p-5 text-sm text-content-muted">
+            <p>
+              Your sign-in works, but the school record behind it is incomplete, so there is
+              nothing to show here yet.
+            </p>
+            <p className="mt-2">
+              An administrator can finish this from Requests. Until then the rest of the app —
+              your schedule, the library, campus — still works from the menu.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date();

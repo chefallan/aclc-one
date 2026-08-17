@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { accountDecisionSchema } from "@/lib/validation";
+import { randomUUID } from "crypto";
 import { generateRequestId } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
 
@@ -113,6 +114,39 @@ export async function PATCH(req: NextRequest) {
             approvedById: session.user.id,
           },
     });
+
+    // Approving a student has to give them a student record, not just an
+    // ACTIVE flag. Without one they have no student number the school can use,
+    // no QR code to be marked present by, and nothing to enrol in a section —
+    // an account that can sign in and do none of the things a student does.
+    if (approving && updated.count > 0) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, role: true, firstName: true, lastName: true, idNumber: true },
+      });
+
+      if (user?.role === "STUDENT") {
+        const existingProfile = await prisma.studentProfile.findUnique({
+          where: { userId: user.id },
+          select: { id: true },
+        });
+
+        if (!existingProfile) {
+          await prisma.studentProfile.create({
+            data: {
+              userId: user.id,
+              // They registered with it; it is the number the registrar knows
+              // them by. Falling back to the user id keeps the unique
+              // constraint satisfied if it was somehow never captured.
+              studentNumber: user.idNumber?.trim() || user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              qrCodeToken: randomUUID(),
+            },
+          });
+        }
+      }
+    }
 
     if (updated.count === 0) {
       return NextResponse.json(
