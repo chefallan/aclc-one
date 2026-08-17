@@ -52,6 +52,20 @@ if (!process.env.DIRECT_URL) {
  *
  * Nothing here prints the password or the URL.
  */
+/**
+ * The value with the password replaced by its length. Enough to recognise
+ * which string is in play and whether it changed; not enough to use.
+ */
+function maskPassword(url) {
+  const at = url.lastIndexOf("@");
+  if (at === -1) return url;
+  const head = url.slice(0, at);
+  const colon = head.indexOf(":", head.indexOf("//") + 2);
+  if (colon === -1) return url;
+  const len = head.length - colon - 1;
+  return `${head.slice(0, colon + 1)}<${len} chars>${url.slice(at)}`;
+}
+
 function diagnoseUrl(name, raw) {
   const problems = [];
 
@@ -100,6 +114,12 @@ function diagnoseUrl(name, raw) {
     console.error(`  ${name} does not parse as a database URL:`);
     console.error("");
     for (const p of problems) console.error(`    - ${p}`);
+    console.error("");
+    // Show the value with only the password masked. Without this there is no
+    // way to tell from a build log whether the variable was actually changed,
+    // and the same failure twice looks identical to a fix that did not work.
+    console.error(`  What ${name} currently holds:`);
+    console.error(`    ${maskPassword(url)}`);
     console.error("");
     console.error("  Expected shape (session pooler, which is what Migrate wants):");
     console.error("    postgresql://postgres.REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres");
