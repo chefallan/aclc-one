@@ -78,7 +78,10 @@ function diagnoseUrl(name, raw) {
   if (lastAt !== -1) {
     const userinfo = afterScheme.slice(0, lastAt);
     const password = userinfo.slice(userinfo.indexOf(":") + 1);
-    const offenders = [...new Set((password.match(/[@/?#[\]%: ]/g) ?? []))];
+    // Drop valid %XX escapes before looking for raw characters, or a correctly
+    // encoded password is condemned for containing the % that encodes it.
+    const raw = password.replace(/%[0-9A-Fa-f]{2}/g, "");
+    const offenders = [...new Set((raw.match(/[@/?#[\]%: ]/g) ?? []))];
     if (offenders.length > 0) {
       problems.push(
         `The password contains ${offenders.map((c) => (c === " " ? "a space" : `"${c}"`)).join(", ")}, ` +
@@ -105,10 +108,12 @@ function diagnoseUrl(name, raw) {
   }
 }
 
-diagnoseUrl(
-  process.env.DIRECT_URL ? "DIRECT_URL" : "DATABASE_URL",
-  process.env.DIRECT_URL ?? process.env.DATABASE_URL
-);
+// Both, not just the one Migrate uses. They normally carry the same password,
+// so fixing only DIRECT_URL turns a failed build into a deployed app that
+// cannot reach its database - a worse outcome, discovered later.
+for (const name of ["DIRECT_URL", "DATABASE_URL"]) {
+  if (process.env[name]) diagnoseUrl(name, process.env[name]);
+}
 
 console.log("  Applying migrations to the production database...");
 
