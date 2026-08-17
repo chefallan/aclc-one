@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SectionSetup } from "@/components/admin/section-setup";
 
 export const metadata = { title: "Sections" };
 
@@ -14,6 +15,19 @@ export default async function SectionsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
   if (!hasPermission(session.user.role as never, "schedule:manage_section")) redirect("/dashboard");
+
+  // The two things a section cannot exist without. Fetched so the setup panel
+  // can offer to create them rather than failing validation later.
+  const [academicYears, programs] = await Promise.all([
+    prisma.academicYear.findMany({
+      select: { id: true, name: true },
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.program.findMany({
+      select: { id: true, name: true, code: true },
+      orderBy: { code: "asc" },
+    }),
+  ]);
 
   const sections = await prisma.section.findMany({
     where: { status: "ACTIVE" },
@@ -39,13 +53,15 @@ export default async function SectionsPage() {
         </p>
       </header>
 
+      <SectionSetup academicYears={academicYears} programs={programs} />
+
       {sections.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center">
             <CalendarDays className="mx-auto size-8 text-content-faint" />
             <p className="mt-3 font-medium">No active sections</p>
             <p className="mt-1 text-sm text-content-muted">
-              Sections appear here once the academic year is set up.
+              Use New section above. On a fresh install you will be walked through the academic year and programme first.
             </p>
           </CardContent>
         </Card>

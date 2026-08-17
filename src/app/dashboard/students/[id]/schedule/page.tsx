@@ -9,6 +9,7 @@ import { resolveScheduleForUser, getActiveTerm } from "@/lib/schedule-resolver";
 import { weeklyHours } from "@/lib/schedule";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScheduleViews } from "@/components/schedule/schedule-views";
+import { EnrolStudent } from "@/components/admin/enrol-student";
 
 export const metadata = { title: "Student schedule" };
 
@@ -42,9 +43,18 @@ export default async function StudentSchedulePage({
 
   if (!student) notFound();
 
-  const [schedule, term] = await Promise.all([
+  const canManage = hasPermission(session.user.role as never, "student:manage");
+
+  const [schedule, term, sections] = await Promise.all([
     resolveScheduleForUser(student.userId),
     getActiveTerm(),
+    canManage
+      ? prisma.section.findMany({
+          where: { status: "ACTIVE" },
+          select: { id: true, name: true, program: { select: { code: true } } },
+          orderBy: [{ yearLevel: "asc" }, { name: "asc" }],
+        })
+      : Promise.resolve([]),
   ]);
   const hours = weeklyHours(schedule.entries);
   const following = schedule.source === "SECTION";
@@ -93,8 +103,21 @@ export default async function StudentSchedulePage({
                 ? "This is the section's block schedule, so it changes when the section's does."
                 : schedule.section
                   ? `Built by the student. ${schedule.section.name}'s block schedule has ${schedule.sectionEntryCount} ${schedule.sectionEntryCount === 1 ? "class" : "classes"}.`
-                  : "Not enrolled in a section, so there is no block schedule to compare against."}
+                  : "Not enrolled in a section, so there is no block schedule to follow."}
             </p>
+            {canManage && (
+              <div className="mt-3">
+                <EnrolStudent
+                  studentId={student.id}
+                  sections={sections.map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    programCode: s.program.code,
+                  }))}
+                  currentSectionId={schedule.section?.id ?? null}
+                />
+              </div>
+            )}
           </div>
           {schedule.section && hasPermission(session.user.role as never, "schedule:manage_section") && (
             <Link
