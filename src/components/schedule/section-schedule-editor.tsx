@@ -33,6 +33,17 @@ export function SectionScheduleEditor({
   term: Term | null;
 }) {
   const [entries, setEntries] = React.useState(initialEntries);
+
+  // The server is the authority. router.refresh() - whether from a live poll
+  // or another tab's edit - sends down a new set, and without this the local
+  // copy silently wins and the screen keeps showing the old timetable.
+  // Adjusted during render, so there is never a frame showing stale rows.
+  const [renderedFor, setRenderedFor] = React.useState(initialEntries);
+  if (renderedFor !== initialEntries) {
+    setRenderedFor(initialEntries);
+    setEntries(initialEntries);
+  }
+
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   /** The entry being edited, or null when adding. */

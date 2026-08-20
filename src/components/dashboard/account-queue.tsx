@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { LiveRefresh } from "@/components/live-refresh";
 
 interface Account {
   id: string;
@@ -93,6 +94,7 @@ export function AccountQueue() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      <LiveRefresh scope="accounts" onChange={() => load(tab)} />
       <header>
         <p className="eyebrow">Administration</p>
         <h1 className="mt-1 text-2xl font-semibold">Account requests</h1>

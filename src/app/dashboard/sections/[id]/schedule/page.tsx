@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { SectionScheduleEditor } from "@/components/schedule/section-schedule-editor";
 import { SectionSettings } from "@/components/admin/section-settings";
+import { LiveRefresh } from "@/components/live-refresh";
 
 export const metadata = { title: "Section timetable" };
 
@@ -57,6 +58,8 @@ export default async function SectionSchedulePage({
         <ChevronLeft className="size-4" />
         All sections
       </Link>
+
+      <LiveRefresh scope="section-schedule" id={section.id} />
 
       <SectionSettings
         sectionId={section.id}

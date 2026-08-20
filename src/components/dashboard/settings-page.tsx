@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { CircleUser, ShieldCheck, CircleCheckBig, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ type Notice = { tone: "ok" | "error"; text: string } | null;
 
 
 export function SettingsPage({ user }: SettingsPageProps) {
+  const router = useRouter();
   const [profileNotice, setProfileNotice] = React.useState<Notice>(null);
   const [passwordNotice, setPasswordNotice] = React.useState<Notice>(null);
   const [savingProfile, setSavingProfile] = React.useState(false);
@@ -53,11 +55,15 @@ export function SettingsPage({ user }: SettingsPageProps) {
       });
       const body = await res.json();
 
+      const saved = res.ok && body.success;
       setProfileNotice(
-        res.ok && body.success
+        saved
           ? { tone: "ok", text: "Profile saved." }
           : { tone: "error", text: body.error ?? "Couldn't save your profile." }
       );
+      // The name is rendered by the server in the shell header, so without
+      // this it keeps showing the old one until a full reload.
+      if (saved) router.refresh();
     } catch {
       setProfileNotice({ tone: "error", text: "Couldn't reach the server. Try again." });
     } finally {

@@ -4,7 +4,7 @@
   "description": "Campus superapp for ACLC College of Ormoc",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3100",
     "build": "prisma generate && next build",
     "vercel-build": "prisma generate && node prisma/migrate-on-deploy.mjs && next build",
     "postinstall": "prisma generate",

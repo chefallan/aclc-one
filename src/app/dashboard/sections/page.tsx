@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/permissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SectionSetup } from "@/components/admin/section-setup";
+import { LiveRefresh } from "@/components/live-refresh";
 
 export const metadata = { title: "Sections" };
 
@@ -52,6 +53,8 @@ export default async function SectionsPage() {
           built their own.
         </p>
       </header>
+
+      <LiveRefresh scope="sections" />
 
       <SectionSetup academicYears={academicYears} programs={programs} />
 
