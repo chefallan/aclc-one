@@ -40,11 +40,16 @@ export function ClassForm({
   submitLabel,
   onSave,
   onCancel,
+  initial,
+  /** Editing changes one class; adding usually means adding several. */
+  keepOpenAfterSave = true,
 }: {
   heading: string;
   submitLabel: string;
   onSave: (values: ClassFormValues, allowClash: boolean) => Promise<SaveResult>;
   onCancel: () => void;
+  initial?: Partial<ClassFormValues>;
+  keepOpenAfterSave?: boolean;
 }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -59,6 +64,7 @@ export function ClassForm({
     endTime: "09:30",
     room: "",
     instructor: "",
+    ...initial,
   });
 
   function update<K extends keyof ClassFormValues>(key: K, value: ClassFormValues[K]) {
@@ -90,6 +96,7 @@ export function ClassForm({
 
       setClash(false);
       setError("");
+      if (!keepOpenAfterSave) return;
       // Day and times stay put: the next class is usually the same day, and
       // retyping them for every slot is the whole tedium of enrolment week.
       setForm((prev) => ({ ...prev, subjectCode: "", subjectTitle: "", room: "" }));

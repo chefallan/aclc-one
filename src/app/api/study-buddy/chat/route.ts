@@ -13,6 +13,7 @@ import {
   ChatUnavailableError,
   type ChatTurn,
 } from "@/lib/study-buddy/chat";
+import { idSchema } from "@/lib/validation";
 import { generateRequestId } from "@/lib/utils";
 
 /**
@@ -27,7 +28,7 @@ const chatSchema = z.object({
   // nullish, not optional: starting a new chat sends conversationId: null,
   // and `.optional()` accepts undefined only — which rejected every first
   // message with "expected string, received null".
-  conversationId: z.string().cuid().nullish(),
+  conversationId: idSchema.nullish(),
 });
 
 /** How much prior conversation is replayed to the model. */

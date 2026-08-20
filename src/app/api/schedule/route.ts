@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { scheduleEntrySchema } from "@/lib/validation";
+import { scheduleEntrySchema, idSchema } from "@/lib/validation";
 import { findClashes, formatRange } from "@/lib/schedule";
 import { generateRequestId } from "@/lib/utils";
 
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-const deleteSchema = z.object({ id: z.string().cuid() });
+const deleteSchema = z.object({ id: idSchema });
 
 export async function DELETE(req: NextRequest) {
   const requestId = generateRequestId();

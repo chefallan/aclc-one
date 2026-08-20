@@ -4,11 +4,12 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { idSchema } from "@/lib/validation";
 import { generateRequestId } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
 
 const borrowSchema = z.object({
-  itemId: z.string().cuid(),
+  itemId: idSchema,
   dueDate: z.coerce.date().refine((d) => d.getTime() > Date.now(), {
     message: "The due date has to be in the future.",
   }),

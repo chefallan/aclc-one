@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { Weekday } from "@prisma/client";
-import { X, Trash2, CalendarDays } from "lucide-react";
+import { X, Trash2, Pencil, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -42,12 +42,15 @@ const GRID_END = 21;
 export function ScheduleWeek({
   entries,
   onRemove,
+  onEdit,
   busy = false,
   emptyTitle = "No schedule set yet",
   emptyBody,
 }: {
   entries: Entry[];
   onRemove?: (id: string) => void;
+  /** Supplied only where editing is allowed; absent means read-only. */
+  onEdit?: (entry: Entry) => void;
   busy?: boolean;
   emptyTitle?: string;
   emptyBody?: string;
@@ -109,7 +112,7 @@ export function ScheduleWeek({
             </Card>
           ) : (
             dayEntries.map((e) => (
-              <EntryRow key={e.id} entry={e} onRemove={onRemove} busy={busy} />
+              <EntryRow key={e.id} entry={e} onRemove={onRemove} onEdit={onEdit} busy={busy} />
             ))
           )}
         </div>
@@ -117,7 +120,7 @@ export function ScheduleWeek({
 
       {/* Desktop: the whole week at once, which is the point of plotting. */}
       <div className="hidden lg:block">
-        <WeekGrid entries={entries} today={today} onRemove={onRemove} busy={busy} />
+        <WeekGrid entries={entries} today={today} onRemove={onRemove} onEdit={onEdit} busy={busy} />
       </div>
     </>
   );
@@ -126,10 +129,12 @@ export function ScheduleWeek({
 function EntryRow({
   entry,
   onRemove,
+  onEdit,
   busy,
 }: {
   entry: Entry;
   onRemove?: (id: string) => void;
+  onEdit?: (entry: Entry) => void;
   busy: boolean;
 }) {
   return (
@@ -148,6 +153,17 @@ function EntryRow({
             <p className="mt-0.5 truncate text-xs text-content-muted">{entry.instructor}</p>
           )}
         </div>
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(entry)}
+            disabled={busy}
+            aria-label={`Edit ${entry.subjectCode}`}
+          >
+            <Pencil className="size-4 text-content-faint" />
+          </Button>
+        )}
         {onRemove && (
           <Button
             variant="ghost"
@@ -168,11 +184,13 @@ function WeekGrid({
   entries,
   today,
   onRemove,
+  onEdit,
   busy,
 }: {
   entries: Entry[];
   today: Weekday;
   onRemove?: (id: string) => void;
+  onEdit?: (entry: Entry) => void;
   busy: boolean;
 }) {
   const hours = Array.from({ length: GRID_END - GRID_START }, (_, i) => GRID_START + i);
@@ -237,16 +255,31 @@ function WeekGrid({
                           {e.room}
                         </p>
                       )}
-                      {onRemove && (
-                        <button
-                          type="button"
-                          onClick={() => onRemove(e.id)}
-                          disabled={busy}
-                          aria-label={`Remove ${e.subjectCode}`}
-                          className="absolute right-1 top-1 hidden rounded bg-white/20 p-0.5 group-hover:block"
-                        >
-                          <X className="size-3" />
-                        </button>
+                      {(onRemove || onEdit) && (
+                        <span className="absolute right-1 top-1 hidden gap-0.5 group-hover:flex">
+                          {onEdit && (
+                            <button
+                              type="button"
+                              onClick={() => onEdit(e)}
+                              disabled={busy}
+                              aria-label={`Edit ${e.subjectCode}`}
+                              className="rounded bg-white/20 p-0.5"
+                            >
+                              <Pencil className="size-3" />
+                            </button>
+                          )}
+                          {onRemove && (
+                            <button
+                              type="button"
+                              onClick={() => onRemove(e.id)}
+                              disabled={busy}
+                              aria-label={`Remove ${e.subjectCode}`}
+                              className="rounded bg-white/20 p-0.5"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          )}
+                        </span>
                       )}
                     </div>
                   );

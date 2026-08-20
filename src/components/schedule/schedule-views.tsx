@@ -23,6 +23,7 @@ export function ScheduleViews({
   entries,
   term,
   onRemove,
+  onEdit,
   busy = false,
   emptyTitle,
   emptyBody,
@@ -30,6 +31,7 @@ export function ScheduleViews({
   entries: Entry[];
   term?: Term | null;
   onRemove?: (id: string) => void;
+  onEdit?: (entry: Entry) => void;
   busy?: boolean;
   emptyTitle?: string;
   emptyBody?: string;
@@ -51,6 +53,7 @@ export function ScheduleViews({
         <ScheduleWeek
           entries={entries}
           onRemove={onRemove}
+          onEdit={onEdit}
           busy={busy}
           emptyTitle={emptyTitle}
           emptyBody={emptyBody}

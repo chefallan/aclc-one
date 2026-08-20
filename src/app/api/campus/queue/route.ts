@@ -5,10 +5,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { isErrandKey } from "@/lib/campus/errands";
+import { idSchema } from "@/lib/validation";
 import { generateRequestId } from "@/lib/utils";
 
 const joinSchema = z.object({
-  officeId: z.string().cuid(),
+  officeId: idSchema,
   errand: z.string().refine(isErrandKey, "Pick an errand from the list."),
 });
 

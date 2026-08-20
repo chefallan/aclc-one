@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { idSchema } from "@/lib/validation";
 import { generateRequestId } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
 
@@ -20,8 +21,8 @@ import { logAudit } from "@/lib/audit";
  * taking them from the request would let the three disagree.
  */
 const schema = z.object({
-  studentId: z.string().cuid(),
-  sectionId: z.string().cuid(),
+  studentId: idSchema,
+  sectionId: idSchema,
 });
 
 export async function POST(req: NextRequest) {

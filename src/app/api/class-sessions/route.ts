@@ -3,12 +3,13 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
+import { idSchema } from "@/lib/validation";
 import { generateRequestId } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const createSessionSchema = z.object({
-  sectionId: z.string().cuid(),
+  sectionId: idSchema,
   date: z.coerce.date(),
   startTime: z.coerce.date(),
   endTime: z.coerce.date(),

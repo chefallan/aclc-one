@@ -30,8 +30,26 @@ export const signUpSchema = z.object({
     .regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/, "Use only letters, numbers and dashes"),
 });
 
+/**
+ * A database id.
+ *
+ * Deliberately not idSchema. Prisma mints cuids, but a row inserted
+ * by hand - a SQL import, a migration backfill - gets a uuid, and a cuid check
+ * rejects it. That turned "edit this class" into "Invalid cuid" for every
+ * timetable loaded by SQL.
+ *
+ * The format was never the safeguard. Every query taking one of these is
+ * scoped by owner or parent, so an id that belongs to nobody finds nothing.
+ */
+export const idSchema = z
+  .string()
+  .trim()
+  .min(1, "Missing id")
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/, "Invalid id");
+
 export const accountDecisionSchema = z.object({
-  userId: z.string().cuid(),
+  userId: idSchema,
   decision: z.enum(["APPROVE", "REJECT"]),
   reason: z.string().trim().max(240).optional(),
 });
@@ -60,9 +78,9 @@ export const programSchema = z.object({
 export const sectionSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   yearLevel: z.coerce.number().int().min(1).max(10),
-  academicYearId: z.string().cuid(),
-  programId: z.string().cuid(),
-  adviserId: z.string().cuid().optional(),
+  academicYearId: idSchema,
+  programId: idSchema,
+  adviserId: idSchema.optional(),
 });
 
 // ─── STUDENT ─────────────────────────────────────────────────────────────────
@@ -82,10 +100,10 @@ export const studentProfileSchema = z.object({
 });
 
 export const studentEnrollmentSchema = z.object({
-  studentId: z.string().cuid(),
-  academicYearId: z.string().cuid(),
-  programId: z.string().cuid(),
-  sectionId: z.string().cuid(),
+  studentId: idSchema,
+  academicYearId: idSchema,
+  programId: idSchema,
+  sectionId: idSchema,
   yearLevel: z.coerce.number().int().min(1).max(10),
 });
 
@@ -102,8 +120,8 @@ export const workplaceSchema = z.object({
 });
 
 export const supervisorSchema = z.object({
-  userId: z.string().cuid(),
-  workplaceId: z.string().cuid(),
+  userId: idSchema,
+  workplaceId: idSchema,
   position: z.string().min(1, "Position is required").max(200),
 });
 
@@ -115,7 +133,7 @@ export const immersionProgramSchema = z.object({
   requiredHours: z.coerce.number().int().min(1).max(10000),
   startDate: z.coerce.date(),
   endDate: z.coerce.date(),
-  academicYearId: z.string().cuid(),
+  academicYearId: idSchema,
   rules: z.object({
     breakMinutes: z.number().int().default(60),
     minSessionMinutes: z.number().int().default(30),
@@ -126,13 +144,13 @@ export const immersionProgramSchema = z.object({
 });
 
 export const immersionAssignmentSchema = z.object({
-  studentId: z.string().cuid(),
-  enrollmentId: z.string().cuid(),
-  immersionProgramId: z.string().cuid(),
-  workplaceId: z.string().cuid(),
-  supervisorId: z.string().cuid().optional(),
-  coordinatorId: z.string().cuid().optional(),
-  teacherId: z.string().cuid().optional(),
+  studentId: idSchema,
+  enrollmentId: idSchema,
+  immersionProgramId: idSchema,
+  workplaceId: idSchema,
+  supervisorId: idSchema.optional(),
+  coordinatorId: idSchema.optional(),
+  teacherId: idSchema.optional(),
   startDate: z.coerce.date(),
   expectedEndDate: z.coerce.date(),
   requiredHours: z.coerce.number().int().min(1),
@@ -141,7 +159,7 @@ export const immersionAssignmentSchema = z.object({
 // ─── TIME TRACKING ───────────────────────────────────────────────────────────
 
 export const timeInSchema = z.object({
-  assignmentId: z.string().cuid(),
+  assignmentId: idSchema,
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   locationAccuracy: z.number().optional(),
@@ -149,7 +167,7 @@ export const timeInSchema = z.object({
 });
 
 export const timeOutSchema = z.object({
-  sessionId: z.string().cuid(),
+  sessionId: idSchema,
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   notes: z.string().optional(),
@@ -158,8 +176,8 @@ export const timeOutSchema = z.object({
 // ─── ACTIVITY LOGS ───────────────────────────────────────────────────────────
 
 export const activityLogSchema = z.object({
-  assignmentId: z.string().cuid(),
-  workSessionId: z.string().cuid(),
+  assignmentId: idSchema,
+  workSessionId: idSchema,
   taskDescription: z.string().min(1, "Task description is required").max(2000),
   learningDescription: z.string().max(2000).optional(),
   taskCategory: z.nativeEnum(TaskCategory),
@@ -169,7 +187,7 @@ export const activityLogSchema = z.object({
 // ─── VERIFICATION & REVIEW ─────────────────────────────────────────────────────
 
 export const supervisorVerificationSchema = z.object({
-  assignmentId: z.string().cuid(),
+  assignmentId: idSchema,
   date: z.coerce.date(),
   hours: z.coerce.number().min(0).max(24),
   logCount: z.coerce.number().int().min(0),
@@ -178,7 +196,7 @@ export const supervisorVerificationSchema = z.object({
 });
 
 export const teacherReviewSchema = z.object({
-  assignmentId: z.string().cuid(),
+  assignmentId: idSchema,
   date: z.coerce.date(),
   remarks: z.string().max(2000).optional(),
   status: z.nativeEnum(ReviewStatus),
@@ -187,7 +205,7 @@ export const teacherReviewSchema = z.object({
 // ─── CLASS SESSIONS ────────────────────────────────────────────────────────────
 
 export const classSessionSchema = z.object({
-  sectionId: z.string().cuid(),
+  sectionId: idSchema,
   subject: z.string().min(1, "Subject is required").max(200),
   room: z.string().min(1, "Room is required").max(100),
   date: z.coerce.date(),
@@ -203,7 +221,7 @@ export const libraryItemSchema = z.object({
   publisher: z.string().max(200).optional(),
   description: z.string().optional(),
   type: z.enum(["BOOK", "EBOOK", "JOURNAL", "THESIS", "MODULE", "HANDOUT", "VIDEO", "AUDIO", "LINK"]),
-  categoryId: z.string().cuid(),
+  categoryId: idSchema,
   fileUrl: z.string().url().optional().or(z.literal("")),
   externalUrl: z.string().url().optional().or(z.literal("")),
   tags: z.array(z.string()).default([]),
@@ -225,7 +243,7 @@ export const noteSchema = z.object({
   summary: z.string().optional(),
   tags: z.array(z.string()).default([]),
   visibility: z.enum(["PRIVATE", "SHARED", "PUBLIC"]).default("PRIVATE"),
-  folderId: z.string().cuid().optional(),
+  folderId: idSchema.optional(),
   color: z.string().optional(),
 });
 
@@ -245,7 +263,7 @@ export const studyBuddyProfileSchema = z.object({
 });
 
 export const studyBuddyMatchSchema = z.object({
-  receiverId: z.string().cuid(),
+  receiverId: idSchema,
   message: z.string().optional(),
 });
 
@@ -296,7 +314,7 @@ export const scheduleEntrySchema = z
   });
 
 export const scheduleEntryUpdateSchema = z.object({
-  id: z.string().cuid(),
+  id: idSchema,
   /** Set when the person has seen the clash and wants it anyway. */
   allowClash: z.boolean().optional(),
 });

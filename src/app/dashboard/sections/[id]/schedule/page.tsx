@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { SectionScheduleEditor } from "@/components/schedule/section-schedule-editor";
+import { SectionSettings } from "@/components/admin/section-settings";
 
 export const metadata = { title: "Section timetable" };
 
@@ -24,6 +25,8 @@ export default async function SectionSchedulePage({
     select: {
       id: true,
       name: true,
+      yearLevel: true,
+      status: true,
       program: { select: { code: true } },
       academicYear: { select: { name: true, startDate: true, endDate: true } },
       _count: { select: { studentEnrollments: true } },
@@ -54,6 +57,14 @@ export default async function SectionSchedulePage({
         <ChevronLeft className="size-4" />
         All sections
       </Link>
+
+      <SectionSettings
+        sectionId={section.id}
+        name={section.name}
+        yearLevel={section.yearLevel}
+        status={section.status as "ACTIVE" | "INACTIVE"}
+        enrolledCount={section._count.studentEnrollments}
+      />
 
       <SectionScheduleEditor
         sectionId={section.id}

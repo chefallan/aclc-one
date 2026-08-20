@@ -35,6 +35,8 @@ export function SectionScheduleEditor({
   const [entries, setEntries] = React.useState(initialEntries);
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  /** The entry being edited, or null when adding. */
+  const [editing, setEditing] = React.useState<Entry | null>(null);
 
   const url = `/api/admin/sections/${sectionId}/schedule`;
 
@@ -56,6 +58,32 @@ export function SectionScheduleEditor({
           toMinutes(a.startTime) - toMinutes(b.startTime)
       )
     );
+    return { ok: true };
+  }
+
+  async function saveEdit(values: ClassFormValues, allowClash: boolean): Promise<SaveResult> {
+    if (!editing) return { ok: false, error: "Nothing being edited." };
+
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...values, entryId: editing.id, allowClash }),
+    });
+    const body = await res.json();
+
+    if (res.status === 409) return { ok: false, clash: true, error: body.error };
+    if (!res.ok || !body.success) return { ok: false, error: body.error };
+
+    setEntries((prev) =>
+      prev
+        .map((e) => (e.id === editing.id ? body.data : e))
+        .sort(
+          (a, b) =>
+            TEACHING_DAYS.indexOf(a.day) - TEACHING_DAYS.indexOf(b.day) ||
+            toMinutes(a.startTime) - toMinutes(b.startTime)
+        )
+    );
+    setEditing(null);
     return { ok: true };
   }
 
@@ -104,7 +132,27 @@ export function SectionScheduleEditor({
         )}
       </header>
 
-      {open && (
+      {editing && (
+        <ClassForm
+          key={editing.id}
+          heading={`Edit ${editing.subjectCode}`}
+          submitLabel="Save changes"
+          keepOpenAfterSave={false}
+          initial={{
+            subjectCode: editing.subjectCode,
+            subjectTitle: editing.subjectTitle ?? "",
+            day: editing.day,
+            startTime: editing.startTime,
+            endTime: editing.endTime,
+            room: editing.room ?? "",
+            instructor: editing.instructor ?? "",
+          }}
+          onSave={saveEdit}
+          onCancel={() => setEditing(null)}
+        />
+      )}
+
+      {open && !editing && (
         <ClassForm
           heading={`New class for ${sectionName}`}
           submitLabel="Add to the block schedule"
@@ -117,6 +165,10 @@ export function SectionScheduleEditor({
         entries={entries}
         term={term}
         onRemove={remove}
+        onEdit={(e) => {
+          setOpen(false);
+          setEditing(e);
+        }}
         busy={busy}
         emptyTitle="No block schedule yet"
         emptyBody={`Add ${sectionName}'s subjects and every student following the section sees them straight away.`}
