@@ -187,23 +187,32 @@ enum ReportFormat {
 // Nothing else in the schema points at it.
 
 model School {
-  id            String             @id @default(cuid())
-  name          String
-  legalName     String?            @map("legal_name")
-  logo          String?
-  address       String?
-  contactEmail  String?            @map("contact_email")
-  contactPhone  String?            @map("contact_phone")
-  timezone      String             @default("UTC")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  name         String
+  legalName    String?  @map("legal_name")
+  logo         String?
+  address      String?
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  timezone     String   @default("UTC")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Attendance rules. Defaults match what was previously hardcoded in the
   // check-in routes, so behaviour is unchanged until a school edits them.
   /// Minutes after a session starts before a check-in counts as LATE.
-  lateGraceMinutes    Int @default(15) @map("late_grace_minutes")
-  /// How long a displayed class code stays valid, in minutes.
+  lateGraceMinutes Int @default(15) @map("late_grace_minutes")
 
+  /// How grades are written down here. Philippine colleges split between a
+  /// raw percentage and the transmuted 1.00-5.00 point scale, and the choice
+  /// changes what "passing" means - so it is a setting, not a hardcoded
+  /// assumption that would have to be unpicked later.
+  gradingScale GradingScale @default(PERCENTAGE) @map("grading_scale")
+
+  /// The line between passed and failed, in whatever scale is set above.
+  /// 75 on a percentage; 3.00 on the point scale, where lower is better.
+  passingGrade Decimal @default(75) @map("passing_grade") @db.Decimal(5, 2)
+  /// How long a displayed class code stays valid, in minutes.
 
   @@map("school")
 }
@@ -211,49 +220,55 @@ model School {
 // ─── USER / AUTH ───────────────────────────────────────────────────────────────
 
 model User {
-  id                String     @id @default(cuid())
-  email             String     @unique
-  passwordHash      String     @map("password_hash")
-  firstName         String     @map("first_name")
-  lastName          String     @map("last_name")
-  middleName        String?    @map("middle_name")
-  suffix            String?
-  phone             String?
-  profilePhoto      String?    @map("profile_photo")
-  role              UserRole
-  status            UserStatus @default(PENDING)
-  emailVerifiedAt   DateTime?  @map("email_verified_at")
-  lastLoginAt       DateTime?  @map("last_login_at")
-  failedLoginAttempts Int      @default(0) @map("failed_login_attempts")
-  lockedUntil       DateTime?  @map("locked_until")
+  id                  String     @id @default(cuid())
+  email               String     @unique
+  passwordHash        String     @map("password_hash")
+  firstName           String     @map("first_name")
+  lastName            String     @map("last_name")
+  middleName          String?    @map("middle_name")
+  suffix              String?
+  phone               String?
+  profilePhoto        String?    @map("profile_photo")
+  role                UserRole
+  status              UserStatus @default(PENDING)
+  emailVerifiedAt     DateTime?  @map("email_verified_at")
+  lastLoginAt         DateTime?  @map("last_login_at")
+  failedLoginAttempts Int        @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?  @map("locked_until")
   /// Student number or faculty ID, as typed at sign-up. The claim is checked
   /// by an administrator at approval — it is not proof of anything on its own.
-  idNumber          String?    @map("id_number")
-  approvedAt        DateTime?  @map("approved_at")
-  approvedById      String?    @map("approved_by_id")
-  rejectionReason   String?    @map("rejection_reason")
-  resetToken        String?    @unique @map("reset_token")
-  resetTokenExpiry  DateTime?  @map("reset_token_expiry")
-  mfaEnabled        Boolean    @default(false) @map("mfa_enabled")
-  mfaSecret         String?    @map("mfa_secret")
-  createdAt         DateTime   @default(now()) @map("created_at")
-  updatedAt         DateTime   @updatedAt @map("updated_at")
+  idNumber            String?    @map("id_number")
+  approvedAt          DateTime?  @map("approved_at")
 
+  /// The section a student picked when signing up. A request, not a fact:
+  /// nothing reads it except approval, which turns it into a StudentEnrollment.
+  /// Kept afterwards so the queue can show what they asked for.
+  requestedSectionId String?   @map("requested_section_id")
+  requestedSection   Section?  @relation("RequestedSection", fields: [requestedSectionId], references: [id], onDelete: SetNull)
+  approvedById       String?   @map("approved_by_id")
+  rejectionReason    String?   @map("rejection_reason")
+  resetToken         String?   @unique @map("reset_token")
+  resetTokenExpiry   DateTime? @map("reset_token_expiry")
+  mfaEnabled         Boolean   @default(false) @map("mfa_enabled")
+  mfaSecret          String?   @map("mfa_secret")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  studentProfile   StudentProfile?
-  supervisorRecord WorkplaceSupervisor?
-  teacherSections  Section[]       @relation("SectionAdviser")
-  classSessions    ClassSession[]
+  studentProfile         StudentProfile?
+  supervisorRecord       WorkplaceSupervisor?
+  teacherSections        Section[]             @relation("SectionAdviser")
+  classSessions          ClassSession[]
   coordinatorAssignments ImmersionAssignment[] @relation("CoordinatorAssignment")
   teacherAssignments     ImmersionAssignment[] @relation("TeacherAssignment")
   teacherReviews         TeacherReview[]
-  auditLogsAsActor AuditLog[]
-  notifications    Notification[]
-  noteFolders      NoteFolder[]
-  notes            Note[]
-  conversations    Conversation[]
-  scheduleEntries  ScheduleEntry[]
-  staffDirectoryEntry StaffDirectoryEntry?
+  auditLogsAsActor       AuditLog[]
+  notifications          Notification[]
+  noteFolders            NoteFolder[]
+  notes                  Note[]
+  conversations          Conversation[]
+  scheduleEntries        ScheduleEntry[]
+  recordedGrades         Grade[]               @relation("GradeRecorder")
+  staffDirectoryEntry    StaffDirectoryEntry?
 
   @@index([email])
   @@index([role])
@@ -272,14 +287,14 @@ model AcademicYear {
   createdAt DateTime           @default(now()) @map("created_at")
   updatedAt DateTime           @updatedAt @map("updated_at")
 
-
-  sections           Section[]
-  studentEnrollments StudentEnrollment[]
-  immersionPrograms  ImmersionProgram[]
+  sections             Section[]
+  studentEnrollments   StudentEnrollment[]
+  immersionPrograms    ImmersionProgram[]
   immersionAssignments ImmersionAssignment[]
-  attendanceRecords  AttendanceRecord[]
-  aiSummaries        AiSummary[]
-  reports            Report[]
+  attendanceRecords    AttendanceRecord[]
+  aiSummaries          AiSummary[]
+  reports              Report[]
+  grades               Grade[]
 
   @@unique([name])
   @@index([status])
@@ -287,21 +302,94 @@ model AcademicYear {
 }
 
 model Program {
-  id          String       @id @default(cuid())
+  id          String        @id @default(cuid())
   code        String
   name        String
   description String?
   status      ProgramStatus @default(ACTIVE)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
 
   sections           Section[]
   studentEnrollments StudentEnrollment[]
   reports            Report[]
+  subjects           Subject[]
 
   @@unique([code])
   @@map("programs")
+}
+
+/// A subject in the curriculum.
+///
+/// Timetables and class sessions carry a subject *code* as free text, which is
+/// fine for a printed schedule and useless for a transcript - there is nothing
+/// to attach units or a grade to. This is that missing thing.
+model Subject {
+  id    String  @id @default(cuid())
+  code  String
+  title String
+  /// Credit units. A transcript and a weighted average are both arithmetic
+  /// over these, so a subject without them cannot appear on either.
+  units Decimal @default(3) @db.Decimal(4, 2)
+
+  description String?
+  status      ProgramStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Optional: general education subjects belong to no single programme.
+  programId String?  @map("program_id")
+  program   Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  grades Grade[]
+
+  @@unique([code])
+  @@index([programId])
+  @@map("subjects")
+}
+
+/// One mark, for one student, in one subject, for one grading period.
+///
+/// Deliberately one row per period rather than a wide row of columns: a school
+/// that adds or drops a period should not need a migration, and a mark that
+/// was never entered must be distinguishable from a zero.
+model Grade {
+  id String @id @default(cuid())
+
+  period GradingPeriod
+  /// Read against the school's gradingScale. Nullable so a row can exist as a
+  /// placeholder on the sheet before anyone has marked it.
+  score  Decimal?      @db.Decimal(5, 2)
+
+  status  GradeStatus @default(DRAFT)
+  remarks String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  studentId String         @map("student_id")
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  subjectId String  @map("subject_id")
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  /// Which section they sat it in. Kept so a grade sheet can be rebuilt for a
+  /// section even after the student moves on.
+  sectionId String?  @map("section_id")
+  section   Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  /// Who entered it.
+  recordedById String? @map("recorded_by_id")
+  recordedBy   User?   @relation("GradeRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, subjectId, academicYearId, period])
+  @@index([sectionId, subjectId])
+  @@index([studentId, academicYearId])
+  @@map("grades")
 }
 
 model Section {
@@ -311,7 +399,6 @@ model Section {
   status    SectionStatus @default(ACTIVE)
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
-
 
   academicYearId String       @map("academic_year_id")
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
@@ -325,8 +412,9 @@ model Section {
   studentEnrollments StudentEnrollment[]
   reports            Report[]
   classSessions      ClassSession[]
-  scheduleEntries SectionScheduleEntry[]
-
+  scheduleEntries    SectionScheduleEntry[]
+  requestedBy        User[]                 @relation("RequestedSection")
+  grades             Grade[]
 
   @@unique([academicYearId, programId, name])
   @@index([academicYearId])
@@ -340,62 +428,60 @@ model Section {
 model StudentProfile {
   /// Which timetable this student reads. Section by default: the registrar
   /// maintains it and everyone stays in step.
-  scheduleSource ScheduleSource @default(SECTION) @map("schedule_source")
-  id              String    @id @default(cuid())
-  studentNumber   String    @map("student_number")
-  firstName       String    @map("first_name")
-  lastName        String    @map("last_name")
-  middleName      String?   @map("middle_name")
-  suffix          String?
-  dateOfBirth     DateTime? @map("date_of_birth")
-  contactEmail    String?   @map("contact_email")
-  contactPhone    String?   @map("contact_phone")
-  emergencyName   String?   @map("emergency_name")
-  emergencyPhone  String?   @map("emergency_phone")
-  emergencyRelation String? @map("emergency_relation")
-  profilePhoto    String?   @map("profile_photo")
-  qrCodeToken     String?   @unique @map("qr_code_token") // Unique token for QR attendance
-  rfidTag         String?   @unique @map("rfid_tag")     // Optional RFID for tap attendance
-  status          UserStatus @default(ACTIVE)
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  scheduleSource    ScheduleSource @default(SECTION) @map("schedule_source")
+  id                String         @id @default(cuid())
+  studentNumber     String         @map("student_number")
+  firstName         String         @map("first_name")
+  lastName          String         @map("last_name")
+  middleName        String?        @map("middle_name")
+  suffix            String?
+  dateOfBirth       DateTime?      @map("date_of_birth")
+  contactEmail      String?        @map("contact_email")
+  contactPhone      String?        @map("contact_phone")
+  emergencyName     String?        @map("emergency_name")
+  emergencyPhone    String?        @map("emergency_phone")
+  emergencyRelation String?        @map("emergency_relation")
+  profilePhoto      String?        @map("profile_photo")
+  qrCodeToken       String?        @unique @map("qr_code_token") // Unique token for QR attendance
+  rfidTag           String?        @unique @map("rfid_tag") // Optional RFID for tap attendance
+  status            UserStatus     @default(ACTIVE)
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
 
   userId String @unique @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-
-  enrollments        StudentEnrollment[]
-  immersionAssignments ImmersionAssignment[]
-  workSessions       WorkSession[]
-  activityLogs       ActivityLog[]
-  photos             PhotoEvidence[]
-  attendanceRecords  AttendanceRecord[]
-  classAttendances   ClassAttendance[]
+  enrollments             StudentEnrollment[]
+  immersionAssignments    ImmersionAssignment[]
+  workSessions            WorkSession[]
+  activityLogs            ActivityLog[]
+  photos                  PhotoEvidence[]
+  attendanceRecords       AttendanceRecord[]
+  classAttendances        ClassAttendance[]
   supervisorVerifications SupervisorVerification[]
-  teacherReviews     TeacherReview[]
-  aiSummaries        AiSummary[]
-  reports            Report[]
-  libraryBorrowRecords LibraryBorrowRecord[]
+  teacherReviews          TeacherReview[]
+  aiSummaries             AiSummary[]
+  reports                 Report[]
+  libraryBorrowRecords    LibraryBorrowRecord[]
+  queueEntries            QueueEntry[]
+  grades                  Grade[]
 
   @@unique([studentNumber])
-  queueEntries QueueEntry[]
-
   @@index([userId])
   @@map("student_profiles")
 }
 
 model StudentEnrollment {
-  id              String          @id @default(cuid())
-  yearLevel       Int             @map("year_level")
+  id               String           @id @default(cuid())
+  yearLevel        Int              @map("year_level")
   enrollmentStatus EnrollmentStatus @default(ENROLLED) @map("enrollment_status")
-  enrolledAt      DateTime        @default(now()) @map("enrolled_at")
-  completedAt     DateTime?       @map("completed_at")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  enrolledAt       DateTime         @default(now()) @map("enrolled_at")
+  completedAt      DateTime?        @map("completed_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
 
   academicYearId String       @map("academic_year_id")
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
@@ -419,33 +505,32 @@ model StudentEnrollment {
 // ─── WORKPLACE ─────────────────────────────────────────────────────────────────
 
 model Workplace {
-  id            String         @id @default(cuid())
+  id            String          @id @default(cuid())
   name          String
   industry      String?
   address       String?
-  contactEmail  String?        @map("contact_email")
-  contactPhone  String?        @map("contact_phone")
-  contactPerson String?        @map("contact_person")
+  contactEmail  String?         @map("contact_email")
+  contactPhone  String?         @map("contact_phone")
+  contactPerson String?         @map("contact_person")
   status        WorkplaceStatus @default(ACTIVE)
   notes         String?
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
 
-
-  supervisors        WorkplaceSupervisor[]
+  supervisors          WorkplaceSupervisor[]
   immersionAssignments ImmersionAssignment[]
-  reports            Report[]
+  reports              Report[]
 
   @@index([status])
   @@map("workplaces")
 }
 
 model WorkplaceSupervisor {
-  id       String @id @default(cuid())
-  position String
-  status   UserStatus @default(ACTIVE)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id        String     @id @default(cuid())
+  position  String
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
 
   workplaceId String    @map("workplace_id")
   workplace   Workplace @relation(fields: [workplaceId], references: [id], onDelete: Cascade)
@@ -453,8 +538,7 @@ model WorkplaceSupervisor {
   userId String @unique @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-
-  immersionAssignments ImmersionAssignment[]
+  immersionAssignments    ImmersionAssignment[]
   supervisorVerifications SupervisorVerification[]
 
   @@index([workplaceId])
@@ -464,23 +548,22 @@ model WorkplaceSupervisor {
 // ─── IMMERSION PROGRAM & ASSIGNMENT ──────────────────────────────────────────
 
 model ImmersionProgram {
-  id            String   @id @default(cuid())
+  id            String          @id @default(cuid())
   name          String
   description   String?
-  requiredHours Int      @map("required_hours")
-  startDate     DateTime @map("start_date")
-  endDate       DateTime @map("end_date")
+  requiredHours Int             @map("required_hours")
+  startDate     DateTime        @map("start_date")
+  endDate       DateTime        @map("end_date")
   status        ImmersionStatus @default(NOT_STARTED)
-  rules         Json?    // Configurable rules: breaks, overtime, min session, max daily, rounding
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
+  rules         Json? // Configurable rules: breaks, overtime, min session, max daily, rounding
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
 
   academicYearId String       @map("academic_year_id")
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
 
   immersionAssignments ImmersionAssignment[]
-  reports            Report[]
+  reports              Report[]
 
   @@index([academicYearId])
   @@index([status])
@@ -501,16 +584,16 @@ model ImmersionAssignment {
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  enrollmentId String          @map("enrollment_id")
+  enrollmentId String            @map("enrollment_id")
   enrollment   StudentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
-  immersionProgramId String          @map("immersion_program_id")
+  immersionProgramId String           @map("immersion_program_id")
   immersionProgram   ImmersionProgram @relation(fields: [immersionProgramId], references: [id], onDelete: Cascade)
 
   workplaceId String    @map("workplace_id")
   workplace   Workplace @relation(fields: [workplaceId], references: [id], onDelete: Cascade)
 
-  supervisorId String?             @map("supervisor_id")
+  supervisorId String?              @map("supervisor_id")
   supervisor   WorkplaceSupervisor? @relation(fields: [supervisorId], references: [id])
 
   coordinatorId String? @map("coordinator_id")
@@ -519,17 +602,16 @@ model ImmersionAssignment {
   teacherId String? @map("teacher_id")
   teacher   User?   @relation("TeacherAssignment", fields: [teacherId], references: [id])
 
-
   academicYearId String       @map("academic_year_id")
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
 
-  workSessions       WorkSession[]
-  activityLogs       ActivityLog[]
-  attendanceRecords  AttendanceRecord[]
+  workSessions            WorkSession[]
+  activityLogs            ActivityLog[]
+  attendanceRecords       AttendanceRecord[]
   supervisorVerifications SupervisorVerification[]
-  teacherReviews     TeacherReview[]
-  aiSummaries        AiSummary[]
-  reports            Report[]
+  teacherReviews          TeacherReview[]
+  aiSummaries             AiSummary[]
+  reports                 Report[]
 
   @@index([studentId])
   @@index([workplaceId])
@@ -544,30 +626,29 @@ model ImmersionAssignment {
 // ─── TIME TRACKING ───────────────────────────────────────────────────────────
 
 model WorkSession {
-  id              String          @id @default(cuid())
-  timeIn          DateTime        @map("time_in")
-  timeOut         DateTime?       @map("time_out")
-  durationMinutes Int?            @map("duration_minutes")
-  timezone        String          @default("UTC")
-  latitude        Decimal?        @db.Decimal(10, 8)
-  longitude       Decimal?        @db.Decimal(11, 8)
-  locationAccuracy Decimal?       @map("location_accuracy") @db.Decimal(6, 2)
-  timeInPhoto     String?         @map("time_in_photo")
-  timeOutPhoto    String?         @map("time_out_photo")
-  deviceInfo      Json?           @map("device_info")
-  notes           String?
-  status          WorkSessionStatus @default(ACTIVE)
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  id               String            @id @default(cuid())
+  timeIn           DateTime          @map("time_in")
+  timeOut          DateTime?         @map("time_out")
+  durationMinutes  Int?              @map("duration_minutes")
+  timezone         String            @default("UTC")
+  latitude         Decimal?          @db.Decimal(10, 8)
+  longitude        Decimal?          @db.Decimal(11, 8)
+  locationAccuracy Decimal?          @map("location_accuracy") @db.Decimal(6, 2)
+  timeInPhoto      String?           @map("time_in_photo")
+  timeOutPhoto     String?           @map("time_out_photo")
+  deviceInfo       Json?             @map("device_info")
+  notes            String?
+  status           WorkSessionStatus @default(ACTIVE)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  assignmentId String             @map("assignment_id")
+  assignmentId String              @map("assignment_id")
   assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
-
-  activityLogs ActivityLog[]
+  activityLogs      ActivityLog[]
   attendanceRecords AttendanceRecord[]
 
   @@index([studentId])
@@ -580,28 +661,27 @@ model WorkSession {
 // ─── ACTIVITY LOGS ───────────────────────────────────────────────────────────
 
 model ActivityLog {
-  id                String           @id @default(cuid())
-  timestamp         DateTime
-  taskDescription   String           @map("task_description")
-  learningDescription String?        @map("learning_description")
-  taskCategory      TaskCategory     @map("task_category")
-  latitude          Decimal?         @db.Decimal(10, 8)
-  longitude         Decimal?         @db.Decimal(11, 8)
-  status            ActivityLogStatus @default(DRAFT)
-  teacherRemarks      String?          @map("teacher_remarks")
-  supervisorRemarks   String?          @map("supervisor_remarks")
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
+  id                  String            @id @default(cuid())
+  timestamp           DateTime
+  taskDescription     String            @map("task_description")
+  learningDescription String?           @map("learning_description")
+  taskCategory        TaskCategory      @map("task_category")
+  latitude            Decimal?          @db.Decimal(10, 8)
+  longitude           Decimal?          @db.Decimal(11, 8)
+  status              ActivityLogStatus @default(DRAFT)
+  teacherRemarks      String?           @map("teacher_remarks")
+  supervisorRemarks   String?           @map("supervisor_remarks")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  assignmentId String             @map("assignment_id")
+  assignmentId String              @map("assignment_id")
   assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   workSessionId String      @map("work_session_id")
   workSession   WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
-
 
   photos PhotoEvidence[]
 
@@ -616,27 +696,26 @@ model ActivityLog {
 // ─── PHOTO EVIDENCE ──────────────────────────────────────────────────────────
 
 model PhotoEvidence {
-  id          String   @id @default(cuid())
-  originalUrl String   @map("original_url")
-  thumbnailUrl String? @map("thumbnail_url")
-  fileSize    Int      @map("file_size")
-  mimeType    String   @map("mime_type")
-  width       Int?
-  height      Int?
-  takenAt     DateTime? @map("taken_at")
-  latitude    Decimal? @db.Decimal(10, 8)
-  longitude   Decimal? @db.Decimal(11, 8)
-  deviceInfo  Json?    @map("device_info")
-  syncStatus  String   @default("synced") @map("sync_status")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(cuid())
+  originalUrl  String    @map("original_url")
+  thumbnailUrl String?   @map("thumbnail_url")
+  fileSize     Int       @map("file_size")
+  mimeType     String    @map("mime_type")
+  width        Int?
+  height       Int?
+  takenAt      DateTime? @map("taken_at")
+  latitude     Decimal?  @db.Decimal(10, 8)
+  longitude    Decimal?  @db.Decimal(11, 8)
+  deviceInfo   Json?     @map("device_info")
+  syncStatus   String    @default("synced") @map("sync_status")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   activityLogId String      @map("activity_log_id")
   activityLog   ActivityLog @relation(fields: [activityLogId], references: [id], onDelete: Cascade)
-
 
   @@index([studentId])
   @@index([activityLogId])
@@ -647,28 +726,27 @@ model PhotoEvidence {
 // ─── ATTENDANCE ──────────────────────────────────────────────────────────────
 
 model AttendanceRecord {
-  id              String           @id @default(cuid())
-  date            DateTime         @db.Date
-  timeIn          DateTime?        @map("time_in")
-  timeOut         DateTime?        @map("time_out")
-  workedMinutes   Int?             @map("worked_minutes")
-  breakMinutes    Int              @default(0) @map("break_minutes")
-  lateMinutes     Int              @default(0) @map("late_minutes")
-  earlyDepartureMinutes Int        @default(0) @map("early_departure_minutes")
-  status          AttendanceStatus @default(ABSENT)
-  notes           String?
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  id                    String           @id @default(cuid())
+  date                  DateTime         @db.Date
+  timeIn                DateTime?        @map("time_in")
+  timeOut               DateTime?        @map("time_out")
+  workedMinutes         Int?             @map("worked_minutes")
+  breakMinutes          Int              @default(0) @map("break_minutes")
+  lateMinutes           Int              @default(0) @map("late_minutes")
+  earlyDepartureMinutes Int              @default(0) @map("early_departure_minutes")
+  status                AttendanceStatus @default(ABSENT)
+  notes                 String?
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  assignmentId String             @map("assignment_id")
+  assignmentId String              @map("assignment_id")
   assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
-  workSessionId String?     @map("work_session_id")
+  workSessionId String?      @map("work_session_id")
   workSession   WorkSession? @relation(fields: [workSessionId], references: [id])
-
 
   academicYearId String       @map("academic_year_id")
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
@@ -694,15 +772,14 @@ model SupervisorVerification {
   createdAt DateTime           @default(now()) @map("created_at")
   updatedAt DateTime           @updatedAt @map("updated_at")
 
-  supervisorId String             @map("supervisor_id")
+  supervisorId String              @map("supervisor_id")
   supervisor   WorkplaceSupervisor @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  assignmentId String             @map("assignment_id")
+  assignmentId String              @map("assignment_id")
   assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-
 
   @@unique([assignmentId, date])
   @@index([supervisorId])
@@ -728,9 +805,8 @@ model TeacherReview {
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  assignmentId String             @map("assignment_id")
+  assignmentId String              @map("assignment_id")
   assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-
 
   @@unique([assignmentId, date])
   @@index([teacherId])
@@ -743,23 +819,22 @@ model TeacherReview {
 // ─── AI SUMMARIES ────────────────────────────────────────────────────────────
 
 model AiSummary {
-  id              String          @id @default(cuid())
-  type            AiSummaryType
-  content         Json
-  rawInput        Json?           @map("raw_input")
-  status          AiSummaryStatus @default(GENERATED)
-  generatedAt     DateTime        @default(now()) @map("generated_at")
-  approvedAt      DateTime?       @map("approved_at")
-  editedContent   Json?           @map("edited_content")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  id            String          @id @default(cuid())
+  type          AiSummaryType
+  content       Json
+  rawInput      Json?           @map("raw_input")
+  status        AiSummaryStatus @default(GENERATED)
+  generatedAt   DateTime        @default(now()) @map("generated_at")
+  approvedAt    DateTime?       @map("approved_at")
+  editedContent Json?           @map("edited_content")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  assignmentId String             @map("assignment_id")
+  assignmentId String              @map("assignment_id")
   assignment   ImmersionAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-
 
   academicYearId String       @map("academic_year_id")
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
@@ -777,18 +852,17 @@ model AiSummary {
 // ─── AUDIT LOG ─────────────────────────────────────────────────────────────────
 
 model AuditLog {
-  id         String     @id @default(cuid())
-  action     AuditAction
-  entity     String
-  entityId   String     @map("entity_id")
-  metadata   Json?
-  ipAddress  String?    @map("ip_address")
-  userAgent  String?    @map("user_agent")
-  createdAt  DateTime   @default(now()) @map("created_at")
+  id        String      @id @default(cuid())
+  action    AuditAction
+  entity    String
+  entityId  String      @map("entity_id")
+  metadata  Json?
+  ipAddress String?     @map("ip_address")
+  userAgent String?     @map("user_agent")
+  createdAt DateTime    @default(now()) @map("created_at")
 
   actorId String? @map("actor_id")
   actor   User?   @relation(fields: [actorId], references: [id])
-
 
   @@index([actorId])
   @@index([action])
@@ -815,7 +889,6 @@ model Notification {
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-
   @@index([userId])
   @@index([isRead])
   @@index([type])
@@ -825,19 +898,18 @@ model Notification {
 // ─── REPORTS ─────────────────────────────────────────────────────────────────
 
 model Report {
-  id          String     @id @default(cuid())
+  id          String       @id @default(cuid())
   type        ReportType
   format      ReportFormat
   title       String
-  fileUrl     String?    @map("file_url")
-  fileSize    Int?       @map("file_size")
+  fileUrl     String?      @map("file_url")
+  fileSize    Int?         @map("file_size")
   parameters  Json?
-  generatedAt DateTime   @default(now()) @map("generated_at")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  generatedAt DateTime     @default(now()) @map("generated_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
 
-
-  academicYearId String?     @map("academic_year_id")
+  academicYearId String?       @map("academic_year_id")
   academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
 
   programId String?  @map("program_id")
@@ -849,10 +921,10 @@ model Report {
   studentId String?         @map("student_id")
   student   StudentProfile? @relation(fields: [studentId], references: [id])
 
-  assignmentId String?             @map("assignment_id")
+  assignmentId String?              @map("assignment_id")
   assignment   ImmersionAssignment? @relation(fields: [assignmentId], references: [id])
 
-  immersionProgramId String?     @map("immersion_program_id")
+  immersionProgramId String?           @map("immersion_program_id")
   immersionProgram   ImmersionProgram? @relation(fields: [immersionProgramId], references: [id])
 
   workplaceId String?    @map("workplace_id")
@@ -909,7 +981,6 @@ model LibraryCategory {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-
   items LibraryItem[]
 
   @@unique([name])
@@ -917,28 +988,27 @@ model LibraryCategory {
 }
 
 model LibraryItem {
-  id          String            @id @default(cuid())
-  title       String
-  author      String?
-  publisher   String?
-  isbn        String?
-  description String?           @db.Text
-  type        LibraryItemType
-  status      LibraryItemStatus @default(AVAILABLE)
-  fileUrl     String?           @map("file_url")
-  fileSize    Int?              @map("file_size")
-  coverImage  String?           @map("cover_image")
-  externalUrl String?           @map("external_url")
-  tags        String[]
-  yearPublished Int?            @map("year_published")
-  totalCopies Int               @default(1) @map("total_copies")
-  availableCopies Int           @default(1) @map("available_copies")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  id              String            @id @default(cuid())
+  title           String
+  author          String?
+  publisher       String?
+  isbn            String?
+  description     String?           @db.Text
+  type            LibraryItemType
+  status          LibraryItemStatus @default(AVAILABLE)
+  fileUrl         String?           @map("file_url")
+  fileSize        Int?              @map("file_size")
+  coverImage      String?           @map("cover_image")
+  externalUrl     String?           @map("external_url")
+  tags            String[]
+  yearPublished   Int?              @map("year_published")
+  totalCopies     Int               @default(1) @map("total_copies")
+  availableCopies Int               @default(1) @map("available_copies")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
   categoryId String          @map("category_id")
   category   LibraryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
 
   borrowRecords LibraryBorrowRecord[]
 
@@ -963,7 +1033,6 @@ model LibraryBorrowRecord {
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
 
   @@index([itemId])
   @@index([studentId])
@@ -990,7 +1059,6 @@ model NoteFolder {
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-
   notes Note[]
 
   @@index([userId])
@@ -998,24 +1066,23 @@ model NoteFolder {
 }
 
 model Note {
-  id        String          @id @default(cuid())
-  title     String
-  content   String          @db.Text
-  summary   String?         @db.Text
-  tags      String[]
-  visibility NoteVisibility   @default(PRIVATE)
-  isPinned  Boolean          @default(false) @map("is_pinned")
-  isArchived Boolean         @default(false) @map("is_archived")
-  color     String?           @default("#ffffff")
-  createdAt DateTime          @default(now()) @map("created_at")
-  updatedAt DateTime          @updatedAt @map("updated_at")
+  id         String         @id @default(cuid())
+  title      String
+  content    String         @db.Text
+  summary    String?        @db.Text
+  tags       String[]
+  visibility NoteVisibility @default(PRIVATE)
+  isPinned   Boolean        @default(false) @map("is_pinned")
+  isArchived Boolean        @default(false) @map("is_archived")
+  color      String?        @default("#ffffff")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
 
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  folderId String?    @map("folder_id")
+  folderId String?     @map("folder_id")
   folder   NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
-
 
   @@index([userId])
   @@index([folderId])
@@ -1028,22 +1095,21 @@ model Note {
 // ─── CLASS SESSION & QR ATTENDANCE ───────────────────────────────────────────
 
 model ClassSession {
-  id            String   @id @default(cuid())
-  date          DateTime @db.Date
-  startTime     DateTime @map("start_time")
-  endTime       DateTime @map("end_time")
-  room          String?
-  subject       String?
-  status        String   @default("SCHEDULED") // SCHEDULED, ACTIVE, CLOSED
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  room      String?
+  subject   String?
+  status    String   @default("SCHEDULED") // SCHEDULED, ACTIVE, CLOSED
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  sectionId      String  @map("section_id")
-  section        Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId String  @map("section_id")
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  teacherId      String @map("teacher_id")
-  teacher        User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-
+  teacherId String @map("teacher_id")
+  teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   attendances ClassAttendance[]
 
@@ -1055,20 +1121,19 @@ model ClassSession {
 }
 
 model ClassAttendance {
-  id          String           @id @default(cuid())
-  scannedAt   DateTime         @default(now()) @map("scanned_at")
-  method      String           @default("QR") // QR, MANUAL, RFID
-  status      AttendanceStatus @default(PRESENT)
-  notes       String?
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  id        String           @id @default(cuid())
+  scannedAt DateTime         @default(now()) @map("scanned_at")
+  method    String           @default("QR") // QR, MANUAL, RFID
+  status    AttendanceStatus @default(PRESENT)
+  notes     String?
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
 
   classSessionId String       @map("class_session_id")
   classSession   ClassSession @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
 
   @@unique([classSessionId, studentId])
   @@index([classSessionId])
@@ -1093,7 +1158,6 @@ model Conversation {
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-
   messages ChatMessage[]
 
   @@index([userId])
@@ -1115,7 +1179,6 @@ model ChatMessage {
 
   conversationId String       @map("conversation_id")
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
 
   @@index([conversationId])
   @@index([createdAt])
@@ -1165,7 +1228,6 @@ model Floor {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-
   offices Office[]
 
   @@unique([level])
@@ -1173,18 +1235,18 @@ model Floor {
 }
 
 model Office {
-  id     String  @id @default(cuid())
-  name   String
+  id         String   @id @default(cuid())
+  name       String
   /// "Window 2", "Rm 304".
-  room   String?
+  room       String?
   /// Local times as "HH:mm". Null means no published hours.
-  opensAt    String? @map("opens_at")
-  closesAt   String? @map("closes_at")
-  lunchStart String? @map("lunch_start")
-  lunchEnd   String? @map("lunch_end")
+  opensAt    String?  @map("opens_at")
+  closesAt   String?  @map("closes_at")
+  lunchStart String?  @map("lunch_start")
+  lunchEnd   String?  @map("lunch_end")
   /// Landmark directions. Indoor positioning is unreliable and expensive;
   /// landmarks are free and students already navigate by them.
-  directions String? @db.Text
+  directions String?  @db.Text
   /// Errand keys this office can settle, e.g. ["CLEARANCE","TOR"].
   handles    String[]
   createdAt  DateTime @default(now()) @map("created_at")
@@ -1192,7 +1254,6 @@ model Office {
 
   floorId String @map("floor_id")
   floor   Floor  @relation(fields: [floorId], references: [id], onDelete: Cascade)
-
 
   staff        StaffDirectoryEntry[]
   queueEntries QueueEntry[]
@@ -1206,18 +1267,18 @@ model StaffDirectoryEntry {
   position String
 
   /// Errands this person handles, narrowing the office's list.
-  handles  String[]
+  handles String[]
 
   /// A staff member's own switch. HIDDEN removes them from every student-facing
   /// list. Participation has to feel voluntary or the data stops being accurate.
   visibility StaffVisibility @default(VISIBLE)
 
-  presenceStatus  PresenceStatus @default(UNKNOWN) @map("presence_status")
+  presenceStatus    PresenceStatus @default(UNKNOWN) @map("presence_status")
   /// When the current state lapses, e.g. "Lunch till 1:00".
-  presenceUntil   DateTime?      @map("presence_until")
-  presenceNote    String?        @map("presence_note")
+  presenceUntil     DateTime?      @map("presence_until")
+  presenceNote      String?        @map("presence_note")
   /// Always surfaced to students so they can judge freshness for themselves.
-  presenceUpdatedAt DateTime?    @map("presence_updated_at")
+  presenceUpdatedAt DateTime?      @map("presence_updated_at")
 
   /// Drives the "~12 min each" estimate on a queue.
   avgServiceMinutes Int @default(10) @map("avg_service_minutes")
@@ -1230,7 +1291,6 @@ model StaffDirectoryEntry {
 
   officeId String? @map("office_id")
   office   Office? @relation(fields: [officeId], references: [id], onDelete: SetNull)
-
 
   @@index([officeId])
   @@index([visibility])
@@ -1249,7 +1309,6 @@ model QueueEntry {
 
   studentId String         @map("student_id")
   student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
 
   @@index([officeId, status])
   @@index([studentId])
@@ -1304,6 +1363,29 @@ model ScheduleEntry {
 /// Where a student's timetable comes from. Following the section keeps them in
 /// step when the registrar changes something; a personal one is for irregular
 /// students, different electives, or anyone whose week genuinely differs.
+enum GradingScale {
+  /// 0-100, higher is better.
+  PERCENTAGE
+  /// 1.00-5.00, lower is better. 1.00 is the highest mark.
+  POINT_SCALE
+}
+
+/// All four a Philippine college might use. A school running three simply
+/// never records a SEMIFINAL, which is cheaper than migrating later.
+enum GradingPeriod {
+  PRELIM
+  MIDTERM
+  SEMIFINAL
+  FINAL
+}
+
+enum GradeStatus {
+  /// The instructor is still working on it; the student cannot see it.
+  DRAFT
+  /// Released to the student.
+  POSTED
+}
+
 enum ScheduleSource {
   SECTION
   PERSONAL

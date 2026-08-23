@@ -30,11 +30,11 @@ vi.mock("@/lib/audit", () => ({ logAudit: vi.fn(async () => undefined) }));
 const db = vi.hoisted(() => ({
   user: { updateMany: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
   studentProfile: { findUnique: vi.fn(), create: vi.fn(), count: vi.fn() },
+  studentEnrollment: { count: vi.fn(), upsert: vi.fn() },
   // The admin branch reads these before rendering its overview.
   classSession: { count: vi.fn(), findMany: vi.fn() },
   classAttendance: { count: vi.fn(), findMany: vi.fn() },
-  studentEnrollment: { count: vi.fn() },
-  section: { findMany: vi.fn() },
+  section: { findMany: vi.fn(), findFirst: vi.fn() },
   $transaction: vi.fn(async (ops) => Promise.all(ops)),
 }));
 
@@ -63,6 +63,8 @@ beforeEach(() => {
   db.user.updateMany.mockResolvedValue({ count: 1 });
   db.studentProfile.findUnique.mockResolvedValue(null);
   db.studentProfile.create.mockResolvedValue({ id: "sp-new" });
+  db.section.findFirst.mockResolvedValue(null);
+  db.studentEnrollment.upsert.mockResolvedValue({ id: "en-1" });
 });
 
 describe("approving a student", () => {
@@ -78,14 +80,16 @@ describe("approving a student", () => {
     const res = await accounts.PATCH(patch({ userId: STUDENT_ID, decision: "APPROVE" }));
     expect(res.status).toBe(200);
 
-    expect(db.studentProfile.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        userId: STUDENT_ID,
-        studentNumber: "02-2223-04891",
-        firstName: "Allan",
-        lastName: "Catayoc",
-      }),
-    });
+    expect(db.studentProfile.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: STUDENT_ID,
+          studentNumber: "02-2223-04891",
+          firstName: "Allan",
+          lastName: "Catayoc",
+        }),
+      })
+    );
   });
 
   it("issues a QR token, or they can never be marked present", async () => {
@@ -122,6 +126,87 @@ describe("approving a student", () => {
     await accounts.PATCH(patch({ userId: STUDENT_ID, decision: "APPROVE" }));
 
     expect(db.studentProfile.create.mock.calls[0][0].data.studentNumber).toBe(STUDENT_ID);
+  });
+});
+
+describe("the section chosen at sign-up", () => {
+  const SECTION_ID = "clzz3333333333333333333c";
+
+  it("becomes a real enrolment on approval", async () => {
+    db.user.findUnique.mockResolvedValue({
+      id: STUDENT_ID, role: "STUDENT", firstName: "A", lastName: "B",
+      idNumber: "02-1", requestedSectionId: SECTION_ID,
+    });
+    db.section.findFirst.mockResolvedValue({
+      id: SECTION_ID, academicYearId: "ay-1", programId: "pr-1", yearLevel: 3,
+    });
+
+    const res = await accounts.PATCH(patch({ userId: STUDENT_ID, decision: "APPROVE" }));
+    expect(res.status).toBe(200);
+
+    // Asserted on the query, not the mock's answer: a mock returns whatever it
+    // is told to, so only this can show the archived filter is really applied.
+    expect(db.section.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "ACTIVE" }),
+      })
+    );
+
+    expect(db.studentEnrollment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          studentId: "sp-new",
+          sectionId: SECTION_ID,
+          academicYearId: "ay-1",
+          yearLevel: 3,
+          enrollmentStatus: "ENROLLED",
+        }),
+      })
+    );
+  });
+
+  it("is ignored when the section has since been archived", async () => {
+    db.user.findUnique.mockResolvedValue({
+      id: STUDENT_ID, role: "STUDENT", firstName: "A", lastName: "B",
+      idNumber: "02-1", requestedSectionId: SECTION_ID,
+    });
+    // findFirst filters on status ACTIVE, so an archived one returns nothing.
+    db.section.findFirst.mockResolvedValue(null);
+
+    const res = await accounts.PATCH(patch({ userId: STUDENT_ID, decision: "APPROVE" }));
+
+    // Still approved - they just need placing by hand.
+    expect(res.status).toBe(200);
+    expect(db.studentEnrollment.upsert).not.toHaveBeenCalled();
+  });
+
+  it("enrols nobody when none was chosen", async () => {
+    db.user.findUnique.mockResolvedValue({
+      id: STUDENT_ID, role: "STUDENT", firstName: "A", lastName: "B",
+      idNumber: "02-1", requestedSectionId: null,
+    });
+
+    const res = await accounts.PATCH(patch({ userId: STUDENT_ID, decision: "APPROVE" }));
+
+    expect(res.status).toBe(200);
+    expect(db.studentEnrollment.upsert).not.toHaveBeenCalled();
+  });
+
+  it("does not enrol a rejected applicant", async () => {
+    db.user.findUnique.mockResolvedValue({
+      id: STUDENT_ID, role: "STUDENT", firstName: "A", lastName: "B",
+      idNumber: "02-1", requestedSectionId: SECTION_ID,
+    });
+    db.section.findFirst.mockResolvedValue({
+      id: SECTION_ID, academicYearId: "ay-1", programId: "pr-1", yearLevel: 3,
+    });
+
+    const res = await accounts.PATCH(
+      patch({ userId: STUDENT_ID, decision: "REJECT", reason: "Not on the register" })
+    );
+
+    expect(res.status).toBe(200);
+    expect(db.studentEnrollment.upsert).not.toHaveBeenCalled();
   });
 });
 

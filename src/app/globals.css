@@ -252,3 +252,99 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Printing ────────────────────────────────────────────────────────────────
+   A school runs on paper it can sign. An attendance sheet goes on a clipboard
+   and a grade sheet gets initialled by the registrar, so both have to print
+   like a form and not like a screenshot of a website.
+
+   Everything here is deliberate:
+   - The app chrome goes. Nobody wants a navigation bar on a signed record.
+   - Colour is forced to black on white regardless of the viewer's theme. A
+     dark-mode print is a page of toner and an unreadable sheet.
+   - Rows are kept off page breaks, and headers repeat, so a long roster
+     stays readable across pages.
+*/
+@media print {
+  /* Themes are for screens. Paper is white. */
+  :root,
+  :root[data-theme="dark"],
+  :root:not([data-theme="light"]) {
+    --color-surface: #ffffff;
+    --color-surface-sunk: #ffffff;
+    --color-content: #000000;
+    --color-content-muted: #333333;
+    --color-content-faint: #555555;
+  }
+
+  /* Overriding the tokens is not enough on its own: an element painted by a
+     utility class still carries whatever the dark theme resolved to, so a
+     dark-mode print came out as a page of toner. Everything is made
+     transparent and the white page shows through. */
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Anything that is navigation, action or decoration. */
+  [data-print="hide"],
+  nav,
+  header[data-app-shell],
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  [data-print="sheet"] {
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+
+  /* Landscape suits a wide date grid; the sheet asks for it explicitly. */
+  [data-print="landscape"] {
+    page: landscape;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+
+  thead {
+    display: table-header-group; /* repeat the dates on every page */
+  }
+
+  tr,
+  td,
+  th {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  th,
+  td {
+    border: 1px solid #000000 !important;
+    padding: 2pt 3pt !important;
+    color: #000000 !important;
+  }
+
+  a[href]::after {
+    content: ""; /* no URL noise on a printed form */
+  }
+}
+
+@page {
+  margin: 12mm;
+}

@@ -15,6 +15,8 @@ import {
   CalendarDays,
   UserCheck,
   Users,
+  Printer,
+  GraduationCap,
   MapPin,
   NotebookPen,
   LogOut,
@@ -46,6 +48,7 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/dashboard", label: "Home", icon: House },
     { href: "/dashboard/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/dashboard/scan", label: "Check in", icon: QrCode, primary: true },
+    { href: "/dashboard/my-grades", label: "Grades", icon: GraduationCap },
     { href: "/dashboard/library", label: "Study", icon: BookOpen },
     { href: "/dashboard/campus", label: "Campus", icon: MapPin },
   ],
@@ -53,6 +56,8 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/dashboard", label: "Dashboard", icon: House },
     { href: "/dashboard/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/dashboard/attendance-reports", label: "Attendance", icon: ClipboardCheck },
+    { href: "/dashboard/attendance-sheet", label: "Sheets", icon: Printer },
+    { href: "/dashboard/grades", label: "Grades", icon: GraduationCap },
     { href: "/dashboard/students", label: "Students", icon: Users },
     { href: "/dashboard/library", label: "Library", icon: BookOpen },
     { href: "/dashboard/notes", label: "Notes", icon: NotebookPen },
@@ -63,6 +68,8 @@ const NAV: Record<Role, NavItem[]> = {
     { href: "/dashboard", label: "Dashboard", icon: House },
     { href: "/dashboard/accounts", label: "Requests", icon: UserCheck },
     { href: "/dashboard/attendance-reports", label: "Reports", icon: ChartNoAxesColumn },
+    { href: "/dashboard/attendance-sheet", label: "Sheets", icon: Printer },
+    { href: "/dashboard/grades", label: "Grades", icon: GraduationCap },
     { href: "/dashboard/sections", label: "Sections", icon: CalendarDays },
     { href: "/dashboard/students", label: "Students", icon: Users },
     { href: "/dashboard/campus", label: "Campus", icon: MapPin },
@@ -101,7 +108,7 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+      <header data-print="hide" className="sticky top-0 z-40 border-b border-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <Mark />

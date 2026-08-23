@@ -1,6 +1,25 @@
 import { z } from "zod";
 import { UserRole, AcademicYearStatus, ProgramStatus, SectionStatus, EnrollmentStatus, WorkplaceStatus, ImmersionStatus, TaskCategory, AttendanceStatus, ActivityLogStatus, VerificationStatus, ReviewStatus, AiSummaryType, AuditAction, NotificationType, ReportType, ReportFormat } from "@prisma/client";
 
+/**
+ * A database id.
+ *
+ * Deliberately not a cuid check. Prisma mints cuids, but a row inserted
+ * by hand - a SQL import, a migration backfill - gets a uuid, and a cuid check
+ * rejects it. That turned "edit this class" into "Invalid cuid" for every
+ * timetable loaded by SQL.
+ *
+ * The format was never the safeguard. Every query taking one of these is
+ * scoped by owner or parent, so an id that belongs to nobody finds nothing.
+ */
+export const idSchema = z
+  .string()
+  .trim()
+  .min(1, "Missing id")
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/, "Invalid id");
+
+
 // ─── AUTH ────────────────────────────────────────────────────────────────────
 
 export const signInSchema = z.object({
@@ -28,25 +47,14 @@ export const signUpSchema = z.object({
     .min(3, "Enter your student number or faculty ID")
     .max(40)
     .regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/, "Use only letters, numbers and dashes"),
+  /**
+   * The section a student picks. Optional on purpose: a school that has not
+   * set its sections up yet must still be able to take sign-ups, and faculty
+   * never have one. Whether the id is real is checked against the database,
+   * not here.
+   */
+  sectionId: idSchema.optional().or(z.literal("")),
 });
-
-/**
- * A database id.
- *
- * Deliberately not idSchema. Prisma mints cuids, but a row inserted
- * by hand - a SQL import, a migration backfill - gets a uuid, and a cuid check
- * rejects it. That turned "edit this class" into "Invalid cuid" for every
- * timetable loaded by SQL.
- *
- * The format was never the safeguard. Every query taking one of these is
- * scoped by owner or parent, so an id that belongs to nobody finds nothing.
- */
-export const idSchema = z
-  .string()
-  .trim()
-  .min(1, "Missing id")
-  .max(64)
-  .regex(/^[A-Za-z0-9_-]+$/, "Invalid id");
 
 export const accountDecisionSchema = z.object({
   userId: idSchema,

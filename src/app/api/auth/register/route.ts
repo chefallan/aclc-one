@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, firstName, lastName, role, idNumber } = parsed.data;
+    const { email, password, firstName, lastName, role, idNumber, sectionId } = parsed.data;
     const normalizedEmail = email.toLowerCase();
 
     // One college, one organization row. It is seeded, not created here.
@@ -73,6 +73,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // A section is only meaningful for a student, and only if it is a real
+    // one that is still running. An id that fails either test is dropped
+    // rather than rejected: the request is still valid, the registrar just
+    // places them by hand.
+    let requestedSectionId: string | null = null;
+    if (role === "STUDENT" && sectionId) {
+      const section = await prisma.section.findFirst({
+        where: { id: sectionId, status: "ACTIVE" },
+        select: { id: true },
+      });
+      requestedSectionId = section?.id ?? null;
+    }
+
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -82,6 +95,7 @@ export async function POST(req: NextRequest) {
         role,
         idNumber,
         status: "PENDING",
+        requestedSectionId,
       },
       select: { id: true, role: true },
     });
@@ -91,7 +105,7 @@ export async function POST(req: NextRequest) {
       actorId: user.id,
       entity: "user",
       entityId: user.id,
-      metadata: { role: user.role, idNumber },
+      metadata: { role: user.role, idNumber, requestedSectionId },
       ipAddress: req.headers.get("x-forwarded-for") ?? undefined,
     });
 

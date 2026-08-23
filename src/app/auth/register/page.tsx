@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TriangleAlert, CircleCheckBig } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,31 @@ export default function RegisterPage() {
     email: "",
     password: "",
   });
+  const [sections, setSections] = useState<
+    Array<{ id: string; name: string; yearLevel: number; programCode: string }>
+  >([]);
+  const [sectionId, setSectionId] = useState("");
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const chosen = ROLES.find((r) => r.value === role)!;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/public/sections")
+      .then((r) => r.json())
+      .then((body) => {
+        if (!cancelled && body?.success) setSections(body.data ?? []);
+      })
+      .catch(() => {
+        // Left empty on purpose. The section is optional, so a failure here
+        // costs the applicant nothing but a dropdown.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function update(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -43,7 +63,11 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, role }),
+        body: JSON.stringify({
+          ...form,
+          role,
+          sectionId: role === "STUDENT" ? sectionId : "",
+        }),
       });
       const data = await res.json();
 
@@ -175,6 +199,32 @@ export default function RegisterPage() {
                   register.
                 </p>
               </div>
+
+              {role === "STUDENT" && sections.length > 0 && (
+                <div className="space-y-1.5">
+                  <label htmlFor="sectionId" className="text-sm font-medium">
+                    Section
+                  </label>
+                  <select
+                    id="sectionId"
+                    value={sectionId}
+                    onChange={(e) => setSectionId(e.target.value)}
+                    aria-describedby="section-hint"
+                    className="h-11 w-full rounded-field border border-hairline-strong bg-surface px-3 text-sm outline-none focus-visible:border-brand-600"
+                  >
+                    <option value="">I don&rsquo;t know yet</option>
+                    {sections.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — {s.programCode}, year {s.yearLevel}
+                      </option>
+                    ))}
+                  </select>
+                  <p id="section-hint" className="text-xs text-content-faint">
+                    Pick it and your class schedule is waiting when you are approved. Leave it
+                    if you are unsure — the registrar can place you.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label htmlFor="email" className="text-sm font-medium">

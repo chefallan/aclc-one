@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       role: true,
       idNumber: true,
       status: true,
+      requestedSection: { select: { name: true } },
       createdAt: true,
       approvedAt: true,
       rejectionReason: true,
@@ -122,7 +123,10 @@ export async function PATCH(req: NextRequest) {
     if (approving && updated.count > 0) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, role: true, firstName: true, lastName: true, idNumber: true },
+        select: {
+          id: true, role: true, firstName: true, lastName: true,
+          idNumber: true, requestedSectionId: true,
+        },
       });
 
       if (user?.role === "STUDENT") {
@@ -131,8 +135,9 @@ export async function PATCH(req: NextRequest) {
           select: { id: true },
         });
 
-        if (!existingProfile) {
-          await prisma.studentProfile.create({
+        const profile =
+          existingProfile ??
+          (await prisma.studentProfile.create({
             data: {
               userId: user.id,
               // They registered with it; it is the number the registrar knows
@@ -143,7 +148,43 @@ export async function PATCH(req: NextRequest) {
               lastName: user.lastName,
               qrCodeToken: randomUUID(),
             },
+            select: { id: true },
+          }));
+
+        // The section they picked at sign-up becomes a real enrolment now,
+        // and only now - approving is the moment the school agrees to it.
+        // Without this the admin would have to go and place every approved
+        // student by hand, having already been told which section they want.
+        if (user.requestedSectionId) {
+          const section = await prisma.section.findFirst({
+            where: { id: user.requestedSectionId, status: "ACTIVE" },
+            select: { id: true, academicYearId: true, programId: true, yearLevel: true },
           });
+
+          if (section) {
+            await prisma.studentEnrollment.upsert({
+              where: {
+                studentId_academicYearId: {
+                  studentId: profile.id,
+                  academicYearId: section.academicYearId,
+                },
+              },
+              create: {
+                studentId: profile.id,
+                sectionId: section.id,
+                academicYearId: section.academicYearId,
+                programId: section.programId,
+                yearLevel: section.yearLevel,
+                enrollmentStatus: "ENROLLED",
+              },
+              update: {
+                sectionId: section.id,
+                programId: section.programId,
+                yearLevel: section.yearLevel,
+                enrollmentStatus: "ENROLLED",
+              },
+            });
+          }
         }
       }
     }

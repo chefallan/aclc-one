@@ -30,6 +30,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/auth") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/health") ||
+    // The sign-up form needs the section list before anyone has an account.
+    // Everything under /api/public is written to be safe unauthenticated.
+    pathname.startsWith("/api/public/") ||
     pathname === "/manifest.json" ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico"
