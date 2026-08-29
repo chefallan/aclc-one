@@ -35,7 +35,15 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/api/public/") ||
     pathname === "/manifest.json" ||
     pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    // A service worker script must be served directly. A browser treats a
+    // redirect while fetching it as a registration failure, so leaving /sw.js
+    // off this list meant the worker only ever installed for someone who was
+    // already signed in.
+    pathname === "/sw.js" ||
+    // The icons the manifest names. Redirecting these fed the sign-in page
+    // into the worker's cache under an icon's URL.
+    pathname.startsWith("/icons/")
   ) {
     const response = NextResponse.next({
       request: { headers: requestHeaders },
