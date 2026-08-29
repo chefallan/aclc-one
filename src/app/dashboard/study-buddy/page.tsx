@@ -12,6 +12,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StudyTabs } from "@/components/study/study-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -240,11 +241,14 @@ export default function StudyBuddyPage() {
     <div className="mx-auto flex h-[calc(100dvh-10.5rem)] max-w-3xl flex-col">
       <header className="flex items-center justify-between gap-3 pb-3">
         <div>
-          <p className="eyebrow">Study</p>
-          <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold">
+          <h1 className="flex items-center gap-2 text-2xl">
             Study Buddy
-            <Sparkles className="size-4.5 text-brand-600 dark:text-brand-400" aria-hidden />
+            <Sparkles className="size-4.5 text-buddy-500" aria-hidden />
           </h1>
+          <p className="mt-1 text-sm text-content-muted">
+            Ask about anything on your timetable. Answers come from your own
+            subjects, never invented.
+          </p>
         </div>
         {!empty && (
           <Button variant="outline" size="sm" onClick={newChat}>
@@ -253,6 +257,8 @@ export default function StudyBuddyPage() {
           </Button>
         )}
       </header>
+
+      <StudyTabs className="mb-3" />
 
       <div
         className="flex-1 space-y-4 overflow-y-auto pb-4"
@@ -403,7 +409,7 @@ function Bubble({ message }: { message: Message }) {
           className={cn(
             "rounded-card px-4 py-3 text-sm leading-relaxed",
             isUser
-              ? "bg-brand-700 text-white"
+              ? "bg-brand-600 text-white"
               : "border border-hairline bg-surface text-content shadow-card"
           )}
         >

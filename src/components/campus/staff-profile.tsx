@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Footprints, Clock, CircleCheckBig, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Footprints, Clock, CircleCheckBig, TriangleAlert, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, Metric } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Guidance } from "@/components/ui/guidance";
+import { AvatarBlock } from "@/components/ui/list-row";
 import { FloorStack, type FloorSummary } from "@/components/campus/floor-stack";
 import { PresencePill, type PresenceView } from "@/components/campus/presence-pill";
 import { errandLabel } from "@/lib/campus/errands";
@@ -86,7 +88,7 @@ export function StaffProfile({
     <div className="mx-auto max-w-2xl space-y-5">
       <Link
         href="/dashboard/campus"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline dark:text-brand-300"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-300"
       >
         <ArrowLeft className="size-4" />
         Campus
@@ -113,10 +115,21 @@ export function StaffProfile({
 
       <Card>
         <CardContent className="p-5 text-center">
-          <span className="mx-auto flex size-16 items-center justify-center rounded-field bg-brand-50 font-display text-xl font-bold text-brand-800 dark:bg-brand-950 dark:text-brand-200">
-            {person.initials}
-          </span>
-          <h1 className="mt-3 font-display text-xl font-semibold">{person.name}</h1>
+          <AvatarBlock
+            label={person.initials}
+            tone={
+              person.presence.tone === "available"
+                ? "present"
+                : person.presence.tone === "waiting"
+                  ? "gold"
+                  : person.presence.tone === "away"
+                    ? "absent"
+                    : "neutral"
+            }
+            size="xl"
+            className="mx-auto"
+          />
+          <h1 className="mt-3 text-xl">{person.name}</h1>
           <p className="text-sm text-content-muted">{person.position}</p>
 
           <div className="mt-3 flex justify-center">
@@ -154,29 +167,50 @@ export function StaffProfile({
         />
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button onClick={() => setShowRoute((v) => !v)} variant="outline">
-          <Footprints className="size-4" />
+      {/* Sheet 04.2 · gold on Directions, because getting there is what this
+          screen is for. The bell beside it is the queue watch — the single most
+          requested behaviour in any registrar line. */}
+      <div className="flex gap-2">
+        <Button
+          onClick={() => setShowRoute((v) => !v)}
+          variant="accent"
+          size="lg"
+          className="flex-1"
+        >
+          <Footprints className="size-4" strokeWidth={1.8} />
           {showRoute ? "Hide directions" : "Walk me there"}
         </Button>
         {canJoinQueue && person.office && (
-          <Button onClick={joinQueue} disabled={busy || joined}>
-            {joined ? "You're in the queue" : busy ? "Joining…" : "Join the queue"}
+          <Button
+            onClick={joinQueue}
+            disabled={busy || joined}
+            variant="outline"
+            size="lg"
+            className="w-13 px-0"
+            aria-label={joined ? "You are in the queue" : "Join the queue"}
+          >
+            <Bell className="size-4.5" strokeWidth={1.8} />
           </Button>
         )}
       </div>
+      {canJoinQueue && person.office && !joined && (
+        <p className="-mt-2 text-center text-xs text-content-faint">
+          Tap the bell to hold your place in the queue.
+        </p>
+      )}
 
       {showRoute && person.office && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-baseline gap-3">
-              <span className="data text-2xl font-bold text-absent-600">
-                {person.office.floor.label}
+            <div className="flex items-center gap-3 rounded-[0.625rem] bg-gold-500 p-3 text-ink-900">
+              <span className="flex shrink-0 flex-col items-center leading-none">
+                <span className="figure text-2xl">{person.office.floor.label}</span>
+                <span className="eyebrow mt-1 text-ink-800">Floor</span>
               </span>
-              <div>
-                <p className="font-medium">{person.office.name}</p>
-                <p className="data text-xs text-content-faint">{walk.summary}</p>
-              </div>
+              <span className="min-w-0">
+                <span className="block font-semibold">{person.office.name}</span>
+                <span className="data block text-xs text-ink-800">{walk.summary}</span>
+              </span>
             </div>
 
             {/* Text steps, not a blue line on a floor plan. Indoor positioning
@@ -189,7 +223,7 @@ export function StaffProfile({
                   .filter(Boolean)
                   .map((step, i) => (
                     <li key={i} className="flex gap-3">
-                      <span className="data flex size-6 shrink-0 items-center justify-center rounded-[0.4rem] border border-hairline bg-surface-sunk text-xs font-semibold text-brand-700 dark:text-brand-300">
+                      <span className="data flex size-6 shrink-0 items-center justify-center rounded-full bg-gold-500 text-xs font-semibold text-ink-900">
                         {i + 1}
                       </span>
                       <span className="text-sm text-content-muted">{step}</span>
@@ -206,13 +240,15 @@ export function StaffProfile({
             )}
 
             {!person.presence.available && (
-              <div className="mt-4 flex items-start gap-2.5 rounded-field border border-late-500/40 bg-late-50 px-3.5 py-3 text-sm text-late-700 dark:bg-late-700/20 dark:text-late-50">
-                <Clock className="mt-0.5 size-4 shrink-0" />
-                <p>
-                  {person.presence.label} right now — {person.presence.detail}. Worth checking
-                  before you climb.
-                </p>
-              </div>
+              <Guidance
+                className="mt-4"
+                icon={<Clock strokeWidth={1.8} />}
+                title={`${person.presence.label} right now`}
+              >
+                {person.presence.detail
+                  ? `${person.presence.detail}. Worth knowing before you climb ${walk.flights === 0 ? "over" : walk.summary.toLowerCase()}.`
+                  : "Worth knowing before you climb."}
+              </Guidance>
             )}
           </CardContent>
         </Card>

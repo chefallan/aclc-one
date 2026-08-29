@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import type { UserRole } from "@prisma/client";
 
 /**
  * ACLC One serves one college, so these are school permissions rather than

@@ -159,11 +159,14 @@ export function StaffDesk() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
+      {/* Concept sheet 08.3 · Staff view — the other half.
+
+          The staff finder only works if staff want to be found, so this screen
+          trades something back: a queue they can see and clear. */}
       <header>
-        <p className="eyebrow">Staff view</p>
-        <h1 className="mt-1 text-2xl font-semibold">{desk.office?.name ?? "Your desk"}</h1>
-        <p className="data mt-1 text-xs text-content-faint">
-          {desk.office?.floor.label}
+        <h1 className="text-2xl">{desk.office?.name ?? "Your desk"}</h1>
+        <p className="eyebrow mt-1.5">
+          Staff view · {desk.office?.floor.label}
           {desk.office?.room ? ` · ${desk.office.room}` : ""} · {desk.position}
         </p>
       </header>
@@ -222,9 +225,9 @@ export function StaffDesk() {
                 onClick={() => setStatus(s.status, "untilHour" in s ? s.untilHour : undefined)}
                 aria-pressed={active}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
+                  "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
                   active
-                    ? "border-brand-700 bg-brand-700 text-white"
+                    ? "border-ink-900 bg-ink-900 text-white"
                     : "border-hairline-strong text-content-muted hover:border-brand-300 hover:text-content"
                 )}
               >
@@ -250,7 +253,7 @@ export function StaffDesk() {
           <ul className="divide-y divide-hairline overflow-hidden rounded-card border border-hairline bg-surface shadow-card">
             {desk.waiting.map((p, i) => (
               <li key={p.id} className="flex items-center gap-3 p-4">
-                <span className="data flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800 dark:bg-brand-950 dark:text-brand-200">
+                <span className="data flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-900 dark:text-brand-100">
                   {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">

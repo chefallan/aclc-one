@@ -13,6 +13,8 @@ import {
   remarkFor,
 } from "@/lib/grading";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatusPill } from "@/components/ui/badge";
+import { Guidance } from "@/components/ui/guidance";
 import { LiveRefresh } from "@/components/live-refresh";
 import type { GradingPeriod } from "@prisma/client";
 
@@ -39,8 +41,7 @@ export default async function MyGradesPage() {
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <header>
-          <p className="eyebrow">Records</p>
-          <h1 className="mt-1 text-2xl font-semibold">My grades</h1>
+          <h1 className="text-2xl">Grades</h1>
         </header>
         <Card>
           <CardContent className="p-6 text-sm text-content-muted">
@@ -98,10 +99,11 @@ export default async function MyGradesPage() {
       <LiveRefresh scope="my-schedule" />
 
       <header data-print="hide">
-        <p className="eyebrow">{student.studentNumber}</p>
-        <h1 className="mt-1 text-2xl font-semibold">My grades</h1>
-        <p className="mt-1 text-sm text-content-muted">
-          Only grades your instructor has released appear here.
+        <h1 className="text-2xl">Grades</h1>
+        <p className="data mt-1 text-xs text-content-faint">{student.studentNumber}</p>
+        <p className="mt-2 text-sm text-content-muted">
+          Read-only, and only what your instructor has released. This is not an
+          official transcript — the registrar issues that.
         </p>
       </header>
 
@@ -122,20 +124,105 @@ export default async function MyGradesPage() {
             return { ...s, average };
           });
           const gwa = weightedAverage(rows.map((r) => ({ score: r.average, units: r.units })));
+          const atRisk = rows.filter(
+            (r) => r.average !== null && !remarkFor(r.average, rules).toLowerCase().includes("pass")
+          );
 
           return (
-            <section key={yearId} data-print="sheet" className="space-y-2">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-lg font-semibold">{year.name}</h2>
-                <p className="text-sm text-content-muted">
-                  Weighted average{" "}
-                  <span className="data font-semibold text-content">
-                    {formatScore(gwa, rules.scale)}
+            <section key={yearId} data-print="sheet" className="space-y-3">
+              {/* Sheet 08.1 · the GWA hero. Grades are set in mono at a large
+                  size because they are official data, and they should look
+                  issued rather than styled. */}
+              <div
+                data-print="hide"
+                className="relative overflow-hidden rounded-hero bg-brand-600 p-5 text-white shadow-hero"
+              >
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-brand-400/25 blur-2xl"
+                />
+                <div className="relative flex items-center gap-4">
+                  <span className="shrink-0">
+                    <span className="data block text-[2.25rem] font-semibold leading-none tracking-tight">
+                      {formatScore(gwa, rules.scale)}
+                    </span>
+                    <span className="eyebrow mt-1.5 block text-brand-200">
+                      Weighted average
+                    </span>
                   </span>
-                </p>
+                  <p className="text-[0.8125rem] leading-snug text-brand-100">
+                    Across {rows.length} {rows.length === 1 ? "subject" : "subjects"} in{" "}
+                    {year.name}. Only released marks are counted, so this moves
+                    as each instructor posts.
+                  </p>
+                </div>
               </div>
 
-              <div className="overflow-x-auto rounded-card border border-hairline bg-surface">
+              {/* Sheet 08.1: the causal link between attendance and a grade is
+                  invisible on a paper card and obvious here. */}
+              {atRisk.length > 0 && (
+                <Guidance data-print="hide" tone="absent">
+                  {atRisk.length === 1
+                    ? `${atRisk[0].title} is below passing.`
+                    : `${atRisk.length} subjects are below passing.`}{" "}
+                  Check your attendance record — it is the most common reason a
+                  mark slips, and the only one you can still change.
+                </Guidance>
+              )}
+
+              <div data-print="hide" className="space-y-2">
+                <h2 className="text-[1.0625rem]">{year.name}</h2>
+                <div className="overflow-hidden rounded-card border border-hairline bg-surface shadow-card [&>*+*]:border-t [&>*+*]:border-hairline">
+                  {rows.map((r) => {
+                    const remark = remarkFor(r.average, rules);
+                    const failing =
+                      r.average !== null && !remark.toLowerCase().includes("pass");
+                    return (
+                      <div key={r.code} className="flex items-center gap-3 px-4 py-3">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[0.9375rem] font-semibold leading-tight">
+                            {r.title}
+                          </span>
+                          <span className="eyebrow mt-1 block truncate">
+                            {r.code} · {r.units} {r.units === 1 ? "unit" : "units"}
+                          </span>
+                        </span>
+                        {r.average === null ? (
+                          <StatusPill variant="excused" className="shrink-0">
+                            No grade yet
+                          </StatusPill>
+                        ) : (
+                          <span className="shrink-0 text-right">
+                            <span
+                              className={
+                                failing
+                                  ? "data block text-xl font-semibold leading-none text-absent-600"
+                                  : "data block text-xl font-semibold leading-none"
+                              }
+                            >
+                              {formatScore(r.average, rules.scale)}
+                            </span>
+                            <span
+                              className={
+                                failing
+                                  ? "mt-1 block text-[0.6875rem] text-absent-600"
+                                  : "mt-1 block text-[0.6875rem] text-content-faint"
+                              }
+                            >
+                              {remark}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* The full period breakdown. Kept as a table because a grade
+                  sheet gets printed and initialled, and the print stylesheet is
+                  built around one. */}
+              <div className="hidden overflow-x-auto rounded-card border border-hairline bg-surface print:block">
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-hairline">

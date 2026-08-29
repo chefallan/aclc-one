@@ -19,9 +19,9 @@ import { cn } from "@/lib/utils";
  * Static and illustrative. The landing page is public, so there is no session
  * and nothing live to read.
  */
-const INK = "#150f11";
-const INK_MUTED = "#554a4d";
-const INK_FAINT = "#7d6f72";
+const INK = "#0a1b33";
+const INK_MUTED = "#4c586d";
+const INK_FAINT = "#7c88a0";
 
 const SHORTCUTS = [
   { icon: MapPin, label: "Find a staff" },

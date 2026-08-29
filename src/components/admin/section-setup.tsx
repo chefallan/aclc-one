@@ -126,7 +126,7 @@ function Step({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-brand-700 hover:underline dark:text-brand-300"
+            className="text-xs text-brand-600 hover:underline dark:text-brand-300"
           >
             {expanded ? "Hide" : "Add another"}
           </button>

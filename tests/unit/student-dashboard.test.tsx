@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { Weekday } from "@prisma/client";
 import { StudentDashboard } from "@/components/dashboard/student-dashboard";
 
@@ -81,16 +81,16 @@ describe("up next", () => {
     vi.setSystemTime(new Date(2026, 7, 17, 12, 20));
     render(<StudentDashboard {...base} schedule={MONDAY} />);
 
-    expect(screen.getByText("Up next · 40 min")).toBeInTheDocument();
-    expect(screen.getByText("IT 402 title")).toBeInTheDocument();
+    const hero = screen.getByText("Up next · 40 min").closest("div")!;
+    expect(within(hero).getByText("IT 402 title")).toBeInTheDocument();
   });
 
   it("says a class is happening rather than counting down to it", () => {
     // 09:00 — CC 105 runs 08:00 to 09:30, so it is in progress.
     render(<StudentDashboard {...base} schedule={MONDAY} />);
 
-    expect(screen.getByText("Happening now")).toBeInTheDocument();
-    expect(screen.getByText("CC 105 title")).toBeInTheDocument();
+    const hero = screen.getByText("Happening now").closest("div")!;
+    expect(within(hero).getByText("CC 105 title")).toBeInTheDocument();
   });
 
   it("says the day is done rather than reaching for a session", () => {
@@ -119,9 +119,12 @@ describe("up next", () => {
     expect(screen.queryByText("Attendance is open")).not.toBeInTheDocument();
   });
 
-  it("still counts a closed class in the day's total", () => {
-    // Scoping the query to ACTIVE would have made this read 1/0 — attended a
-    // class that, by the denominator, never happened.
+  it("counts a closed class as one of the day's, not as a check-in", () => {
+    // This replaces a "Today 1/1" tile that concept sheet 02.3 does not have —
+    // the two tiles there are the term rate and the absence budget. The rule it
+    // was guarding still holds and is still worth pinning: a closed session is
+    // part of the day, so it must not be filtered out of todaySessions, but it
+    // must not offer a check-in either.
     render(
       <StudentDashboard
         {...base}
@@ -138,8 +141,33 @@ describe("up next", () => {
       />
     );
 
-    const today = screen.getByText("Today").closest("div")!;
-    expect(today.textContent).toMatch(/1\s*\/1/);
+    expect(screen.queryByText("Attendance is open")).not.toBeInTheDocument();
+    expect(screen.getByText("Present")).toBeInTheDocument();
+  });
+
+  it("frames absences as a budget against the 20% cap", () => {
+    // Sheet 02.3: absences-left is framed as a budget, not a percentage,
+    // because that is how students actually think about it. Ten sessions allow
+    // two absences under the cap; one used leaves one.
+    const marks = (n: number, status: string) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `${status}-${i}`,
+        scannedAt: new Date(2026, 7, 10 + i, 9, 0),
+        status,
+        classSession: { subject: "CC 105", room: "RM 304", startTime: SESSION.startTime },
+      }));
+
+    render(
+      <StudentDashboard
+        {...base}
+        classAttendances={[...marks(9, "PRESENT"), ...marks(1, "ABSENT")]}
+        schedule={[]}
+      />
+    );
+
+    const tile = screen.getByText("Absences left").closest("div")!;
+    expect(tile.textContent).toMatch(/1\s*\/2/);
+    expect(tile.textContent).toContain("Cap is 20%");
   });
 
   it("does not offer a check-in for a session already attended", () => {

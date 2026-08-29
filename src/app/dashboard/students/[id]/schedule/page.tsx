@@ -122,7 +122,7 @@ export default async function StudentSchedulePage({
           {schedule.section && hasPermission(session.user.role as never, "schedule:manage_section") && (
             <Link
               href={`/dashboard/sections/${schedule.section.id}/schedule`}
-              className="text-sm text-brand-700 hover:underline dark:text-brand-300"
+              className="text-sm text-brand-600 hover:underline dark:text-brand-300"
             >
               Open {schedule.section.name}
             </Link>

@@ -11,8 +11,9 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { StudyTabs } from "@/components/study/study-tabs";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusPill } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface LibraryItem {
@@ -79,14 +80,15 @@ export default function LibraryPage() {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-3xl space-y-4">
       <header>
-        <p className="eyebrow">Study</p>
-        <h1 className="mt-1 text-2xl font-semibold">Library</h1>
+        <h1 className="text-2xl">Study</h1>
         <p className="mt-1 text-sm text-content-muted">
           The catalog, the ebooks, and every capstone ACLC has defended.
         </p>
       </header>
+
+      <StudyTabs />
 
       <div className="space-y-3">
         <div className="relative">
@@ -109,9 +111,9 @@ export default function LibraryPage() {
               onClick={() => setType(f)}
               aria-pressed={type === f}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
                 type === f
-                  ? "border-brand-700 bg-brand-700 text-white"
+                  ? "border-ink-900 bg-ink-900 text-white"
                   : "border-hairline-strong text-content-muted hover:border-brand-300 hover:text-content"
               )}
             >
@@ -171,10 +173,10 @@ export default function LibraryPage() {
                           ) : null}
                         </p>
                         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                          <Badge variant={available ? "present" : "outline"} dot={available}>
+                          <StatusPill variant={available ? "present" : "outline"} dot={available}>
                             {available ? "On the shelf" : titleCase(item.status)}
-                          </Badge>
-                          <Badge variant="outline">{titleCase(item.type)}</Badge>
+                          </StatusPill>
+                          <StatusPill variant="room">{titleCase(item.type)}</StatusPill>
                           {item.category && (
                             <Badge variant="secondary">{item.category.name}</Badge>
                           )}

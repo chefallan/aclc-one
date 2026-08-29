@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { StatusPill } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export interface FloorSummary {
@@ -19,21 +20,26 @@ interface FloorStackProps {
   floors: FloorSummary[];
   /** Where the reader is standing. Ground unless we know better. */
   youAreOnLevel?: number;
-  /** The floor being highlighted — the one crimson surface on this screen. */
+  /** The floor being highlighted — the one gold surface on this screen. */
   destinationLevel?: number;
   onSelect?: (floor: FloorSummary) => void;
   className?: string;
 }
 
 /**
- * A cutaway of the building rather than a top-down map.
+ * Concept sheet 04.3 · The floor stack. The signature element.
  *
- * Indoors the useful axis is vertical: the only question that matters is how
- * many flights up. Slabs are stacked highest-first and skewed slightly so the
- * thing reads as a building in section, not a list.
+ * A cutaway of the building rather than a top-down map, because indoors the
+ * useful axis is vertical: the only question that matters is how many flights
+ * up. Slabs are stacked highest-first and skewed slightly so the thing reads as
+ * a building in section, not a list.
  *
- * This is the one screen allowed to be dramatic, and the only place the app
- * goes dark — it behaves like a map, so it should feel like a different mode.
+ * Each slab carries what is on that floor and how many people are available on
+ * it — the dots read before the text does. The destination floor is the only
+ * gold surface here; everything else recedes.
+ *
+ * The dark ground is deliberate. This is the one screen that behaves like a
+ * map, and it should feel like a different mode.
  */
 export function FloorStack({
   floors,
@@ -55,13 +61,11 @@ export function FloorStack({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-card border border-navy-900 bg-navy-950 p-4 text-white sm:p-5",
+        "surface-ink overflow-hidden rounded-card border border-ink-800 p-4 sm:p-5",
         className
       )}
     >
-      <p className="data mb-4 text-[0.68rem] uppercase tracking-[0.16em] text-navy-300">
-        {onSelect ? "Tap a floor" : "The building"}
-      </p>
+      <p className="eyebrow mb-4 text-ink-300">{onSelect ? "Tap a floor" : "The building"}</p>
 
       <ol className="space-y-2">
         {floors.map((floor) => {
@@ -72,24 +76,22 @@ export function FloorStack({
           return (
             <li key={floor.id} className="relative">
               <Tag
-                {...(onSelect
-                  ? { type: "button" as const, onClick: () => onSelect(floor) }
-                  : {})}
+                {...(onSelect ? { type: "button" as const, onClick: () => onSelect(floor) } : {})}
                 aria-current={isDestination ? "location" : undefined}
                 className={cn(
                   "group flex w-full items-center gap-3 rounded-[0.6rem] border px-3.5 py-3 text-left transition-colors",
                   // A slight skew reads as a slab seen in section.
                   "[transform:perspective(900px)_rotateX(3deg)]",
                   isDestination
-                    ? "border-brand-500 bg-brand-600 text-white shadow-raised"
-                    : "border-brand-800 bg-brand-900/70 hover:border-brand-600",
+                    ? "border-gold-400 bg-gold-500 text-ink-900 shadow-raised"
+                    : "border-ink-700 bg-ink-800/80 text-ink-50 hover:border-brand-500",
                   onSelect && "cursor-pointer"
                 )}
               >
                 <span
                   className={cn(
-                    "data w-9 shrink-0 text-lg font-bold leading-none tracking-tight",
-                    isDestination ? "text-white" : "text-navy-300"
+                    "figure w-9 shrink-0 text-lg",
+                    isDestination ? "text-ink-900" : "text-ink-300"
                   )}
                 >
                   {floor.label}
@@ -102,7 +104,7 @@ export function FloorStack({
                   <span
                     className={cn(
                       "data mt-0.5 block text-[0.7rem]",
-                      isDestination ? "text-brand-100" : "text-navy-400"
+                      isDestination ? "text-ink-800" : "text-ink-400"
                     )}
                   >
                     {describe(floor)}
@@ -115,15 +117,20 @@ export function FloorStack({
                     <span key={`a${i}`} className="size-1.5 rounded-full bg-present-500" />
                   ))}
                   {Array.from({ length: Math.min(floor.busy, 3) }).map((_, i) => (
-                    <span key={`b${i}`} className="size-1.5 rounded-full bg-late-500" />
+                    <span key={`b${i}`} className="size-1.5 rounded-full bg-gold-400" />
                   ))}
                   {Array.from({ length: Math.min(floor.away, 2) }).map((_, i) => (
-                    <span key={`w${i}`} className="size-1.5 rounded-full bg-absent-400/70" />
+                    <span key={`w${i}`} className="size-1.5 rounded-full bg-absent-400" />
                   ))}
                 </span>
 
                 {isYou && (
-                  <span className="data shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[0.6rem] uppercase tracking-[0.1em]">
+                  <span
+                    className={cn(
+                      "data shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] uppercase tracking-[0.1em]",
+                      isDestination ? "bg-ink-900/15 text-ink-900" : "bg-white/15 text-ink-50"
+                    )}
+                  >
                     You
                   </span>
                 )}
@@ -133,33 +140,32 @@ export function FloorStack({
         })}
       </ol>
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-navy-800 pt-3.5">
-        <Legend tone="bg-present-500" label="available" value={totals.available} />
-        <Legend tone="bg-late-500" label="busy" value={totals.busy} />
-        <Legend tone="bg-absent-400/70" label="out" value={totals.away} />
+      {/* Sheet 04.3 · "WHO IS ON EACH FLOOR". Hidden is a designed-in state, not
+          an omission: who visits guidance is nobody else's business. */}
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-700 pt-3.5">
+        <StatusPill variant="present" dot>
+          {totals.available} available
+        </StatusPill>
+        <StatusPill variant="late" dot>
+          {totals.busy} in class
+        </StatusPill>
+        <StatusPill variant="absent" dot>
+          {totals.away} out
+        </StatusPill>
         {totals.hidden > 0 && (
-          <Legend tone="bg-navy-500" label="not sharing" value={totals.hidden} />
+          <StatusPill variant="excused" dot>
+            {totals.hidden} hidden
+          </StatusPill>
         )}
       </div>
     </div>
   );
 }
 
-function Legend({ tone, label, value }: { tone: string; label: string; value: number }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={cn("size-2 rounded-full", tone)} aria-hidden />
-      <span className="data text-[0.68rem] uppercase tracking-[0.12em] text-navy-300">
-        {value} {label}
-      </span>
-    </span>
-  );
-}
-
 function describe(floor: FloorSummary): string {
   const parts: string[] = [];
   if (floor.available > 0) parts.push(`${floor.available} in`);
-  if (floor.busy > 0) parts.push(`${floor.busy} busy`);
+  if (floor.busy > 0) parts.push(`${floor.busy} in class`);
   if (floor.away > 0) parts.push(`${floor.away} out`);
   if (parts.length === 0) parts.push("nobody sharing");
   return parts.join(" · ");

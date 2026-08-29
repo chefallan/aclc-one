@@ -1,34 +1,35 @@
 import type { Metadata, Viewport } from "next";
-import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 /**
- * Three faces, one rule: the serif speaks, the sans operates, the mono records.
+ * Three faces, one rule (concept sheet 01): the display titles, the sans
+ * operates, the mono records.
  *
- * Newsreader carries the voice — page titles and the things the school is
- * saying in its own words. It is an editorial serif with an optical-size axis,
- * so it holds up at both hero and heading sizes, and it gives a college the
- * authority a grotesque cannot.
+ * Bricolage Grotesque carries display — headings, screen titles, and the
+ * figures the app works out for you. It has an optical-size axis, so the same
+ * face holds a 40px hero number and a 15px card title without either looking
+ * like the other scaled.
  *
- * IBM Plex Sans runs the interface. It was drawn for screens, has a generous
- * x-height, and stays legible at 12px on the mid-range Android handsets most
- * students here are using in daylight.
+ * Instrument Sans runs the interface: body, labels, buttons, sentence case
+ * everywhere. It was drawn for screens and stays legible at 12px on the
+ * mid-range Android handsets most students here are using in daylight.
  *
  * IBM Plex Mono marks anything issued by the school — student numbers, room
- * codes, times, percentages. Sharing a superfamily with the body face means
- * data sits inside a sentence without looking pasted in.
+ * codes, times, percentages, grades. If it came off an official record, it is
+ * monospaced.
  */
-const newsreader = Newsreader({
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display-face",
   display: "swap",
+  axes: ["opsz"],
 });
 
-const plexSans = IBM_Plex_Sans({
+const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-body",
   display: "swap",
 });
@@ -64,8 +65,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#a6192e" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0708" },
+    { media: "(prefers-color-scheme: light)", color: "#14459c" },
+    { media: "(prefers-color-scheme: dark)", color: "#060f1f" },
   ],
 };
 
@@ -78,12 +79,12 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable}`}
+      className={`${bricolage.variable} ${instrumentSans.variable} ${plexMono.variable}`}
     >
       <body className="min-h-dvh bg-page text-content antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-field focus:bg-brand-700 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-field focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
         >
           Skip to content
         </a>

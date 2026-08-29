@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { TriangleAlert, CircleCheckBig } from "lucide-react";
+import { CircleCheckBig } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormMessage } from "@/components/ui/form-message";
 import { Mark } from "@/components/shell/app-shell";
 import { cn } from "@/lib/utils";
 
@@ -122,14 +123,9 @@ export default function RegisterPage() {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-7 space-y-4" noValidate>
-              {error && (
-                <div
-                  role="alert"
-                  className="flex items-start gap-2.5 rounded-field border border-absent-500/40 bg-absent-50 px-3.5 py-3 text-sm text-absent-700 dark:bg-absent-900/30 dark:text-absent-200"
-                >
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                  <p>{error}</p>
-                </div>
+              {error && <FormMessage tone="error">{error}</FormMessage>}
+              {!error && loading && (
+                <FormMessage tone="working">Sending your request…</FormMessage>
               )}
 
               <fieldset>
@@ -259,8 +255,8 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              <Button type="submit" disabled={loading} block size="lg">
-                {loading ? "Sending…" : "Send request"}
+              <Button type="submit" block size="lg" loading={loading} loadingText="Sending…">
+                Send request
               </Button>
             </form>
 
@@ -268,7 +264,7 @@ export default function RegisterPage() {
               Already approved?{" "}
               <Link
                 href="/auth/signin"
-                className="font-medium text-brand-700 hover:underline dark:text-brand-300"
+                className="font-medium text-brand-600 hover:underline dark:text-brand-300"
               >
                 Sign in
               </Link>

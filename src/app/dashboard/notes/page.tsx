@@ -3,6 +3,7 @@
 import * as React from "react";
 import { NotebookPen, Search, Plus, Pin, X, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StudyTabs } from "@/components/study/study-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -108,11 +109,13 @@ export default function NotesPage() {
   const rest = filtered.filter((n) => !n.isPinned);
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-3xl space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Study</p>
-          <h1 className="mt-1 text-2xl font-semibold">Notes</h1>
+          <h1 className="text-2xl">Study</h1>
+          <p className="mt-1 text-sm text-content-muted">
+            Filed by the class you were in. Nothing to name, nothing to sort.
+          </p>
         </div>
         {!editorOpen && (
           <Button onClick={() => setEditorOpen(true)}>
@@ -121,6 +124,8 @@ export default function NotesPage() {
           </Button>
         )}
       </header>
+
+      <StudyTabs />
 
       {error && (
         <div

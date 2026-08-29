@@ -42,3 +42,10 @@ export function resolveAttendanceStatus(
   return arrivedAt.getTime() > cutoff ? "LATE" : "PRESENT";
 }
 
+
+/**
+ * The absence cap lives in its own module because the screens that show it are
+ * client components and this file reaches for Prisma. Re-exported here so
+ * server code that already imports the attendance rules keeps one entry point.
+ */
+export { ABSENCE_CAP_RATIO, absenceBudget, type AbsenceBudget } from "@/lib/attendance-cap";

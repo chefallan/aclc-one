@@ -4,7 +4,8 @@ import * as React from "react";
 import { Plus, ScanLine, X, CircleCheckBig, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, Metric } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusPill } from "@/components/ui/badge";
+import { AvatarBlock } from "@/components/ui/list-row";
 import { Input } from "@/components/ui/input";
 import { QrScanner } from "@/components/class/qr-scanner";
 import { cn } from "@/lib/utils";
@@ -275,18 +276,33 @@ export function TeacherDashboard({ classSessions, sections }: TeacherDashboardPr
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="flex items-baseline gap-2">
-              <span className="data text-3xl font-semibold leading-none">
-                {active.attendances?.length ?? 0}
-              </span>
-              <span className="text-sm text-content-muted">checked in</span>
+            <div className="relative overflow-hidden rounded-hero bg-brand-600 p-4 text-white shadow-hero">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -right-10 -top-14 size-40 rounded-full bg-gold-400/20 blur-2xl"
+              />
+              <div className="relative flex items-center gap-4">
+                <span className="shrink-0">
+                  <span className="figure text-[2rem] text-white">
+                    {active.attendances?.length ?? 0}
+                  </span>
+                  <span className="eyebrow mt-1 block text-brand-200">Checked in</span>
+                </span>
+                <p className="text-[0.8125rem] leading-snug text-brand-100">
+                  Newest arrival first, matching what you watch during the first
+                  ten minutes. A mismatch is a prompt for judgement, never an
+                  automatic mark.
+                </p>
+              </div>
             </div>
 
             {/* One way to record attendance: scan the student in front of you.
                 There is no code to project — a code on the board can be
-                photographed and used from anywhere. */}
-            <Button onClick={() => setScanning((v) => !v)} block>
-              <ScanLine className="size-4" />
+                photographed and used from anywhere.
+
+                Gold, because it is the one thing this screen exists to do. */}
+            <Button onClick={() => setScanning((v) => !v)} variant="accent" size="lg" block>
+              <ScanLine className="size-4" strokeWidth={1.8} />
               {scanning ? "Stop scanning" : "Scan student codes"}
             </Button>
 
@@ -294,8 +310,10 @@ export function TeacherDashboard({ classSessions, sections }: TeacherDashboardPr
 
             <Roster attendances={active.attendances ?? []} />
 
-            <Button variant="destructive" onClick={() => closeSession(active.id)} disabled={busy} block>
-              Close session and submit
+            {/* Sheet 03.4: "Submit sheet" is the familiar mental model, so
+                adoption does not require re-learning the job. */}
+            <Button variant="outline" onClick={() => closeSession(active.id)} disabled={busy} block>
+              Submit sheet and close
             </Button>
           </CardContent>
         </Card>
@@ -369,18 +387,20 @@ function Roster({ attendances }: { attendances: Attendance[] }) {
       <ul className="divide-y divide-hairline overflow-hidden rounded-field border border-hairline">
         {ordered.map((a) => (
           <li key={a.id} className="flex items-center gap-3 px-3 py-2.5">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[0.7rem] font-semibold text-brand-800 dark:bg-brand-950 dark:text-brand-200">
-              {initials(a.student.firstName, a.student.lastName)}
-            </span>
+            <AvatarBlock
+              label={initials(a.student.firstName, a.student.lastName)}
+              tone={a.status === "LATE" ? "gold" : "present"}
+              size="sm"
+            />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">
                 {a.student.lastName}, {a.student.firstName}
               </p>
               <p className="data text-xs text-content-faint">{a.student.studentNumber}</p>
             </div>
-            <Badge variant={a.status === "LATE" ? "late" : "present"}>
-              <span className="data">{formatTime(a.scannedAt)}</span>
-            </Badge>
+            <StatusPill variant={a.status === "LATE" ? "late" : "present"}>
+              {formatTime(a.scannedAt)}
+            </StatusPill>
           </li>
         ))}
       </ul>

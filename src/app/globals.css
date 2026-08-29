@@ -2,108 +2,148 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ACLC One — design tokens
+   Implements ACLC One concept v0.1, sheet 01 "Institutional blue, Ormoc gold".
 
-   Crimson leads. It is the colour of the AMA Education System that ACLC
-   belongs to, so it carries the institution: the mark, primary actions,
-   links, anything the school is saying with its own voice.
+   The blue is inherited — it is the colour students already associate with
+   ACLC and the AMA system, so it carries authority for anything official:
+   attendance records, grades, the registrar.
 
-   Navy carries weight, not identity — large dark surfaces like the hero and
-   the floor stack, where a wall of crimson would shout. The pairing is the
-   point: crimson for what you act on, navy for what you read against.
+   The single accent is the gold of Ormoc's own pineapple fields, used only for
+   things that need you: a streak, a deadline, an available consultation slot,
+   the one action a screen exists for. Nothing else gets to be gold.
 
-   One consequence worth stating, because it drove the rest of this file:
-   crimson can no longer mean "danger". A brand colour that also signals an
-   absence teaches people to ignore it. So attendance keeps its own set —
-   green, amber, and a deep maroon that is deliberately darker and cooler
-   than the brand, and shown outlined rather than filled so the two never
-   compete on the same screen.
+   Green and red are reserved for attendance states only. Purple marks
+   study-buddy activity so social never reads as official.
+
+   The five hexes named on sheet 01 appear here verbatim and anchor their
+   ramps; every other step is derived from them.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* — Crimson: the institution ——————————————————————————————————————— */
-  --color-brand-50: #fef2f3;
-  --color-brand-100: #fde0e3;
-  --color-brand-200: #fbc5cc;
-  --color-brand-300: #f79ba8;
-  --color-brand-400: #ee6379;
-  --color-brand-500: #de3450;
-  --color-brand-600: #c8102e;
-  --color-brand-700: #a6192e;
-  --color-brand-800: #8a1428;
-  --color-brand-900: #6d1021;
-  --color-brand-950: #440a14;
+  /* — Sea: the institution —————————————————————————————————————————————
+     600 is sea #14459C. 50 is sky #E7EEFC. 950 is ink #0A1B33. */
+  --color-brand-50: #e7eefc;
+  --color-brand-100: #d0def8;
+  --color-brand-200: #a8c0f0;
+  --color-brand-300: #789ce4;
+  --color-brand-400: #4a76d3;
+  --color-brand-500: #2456be;
+  --color-brand-600: #14459c;
+  --color-brand-700: #10387f;
+  --color-brand-800: #0d2c64;
+  --color-brand-900: #0a2149;
+  --color-brand-950: #0a1b33;
 
-  /* — Navy: weight and depth, never identity ————————————————————————— */
-  --color-navy-50: #eff4fc;
-  --color-navy-100: #dce7f8;
-  --color-navy-200: #bccdf2;
-  --color-navy-300: #8dabe9;
-  --color-navy-400: #5580dc;
-  --color-navy-500: #2c5bcb;
-  --color-navy-600: #1a43ad;
-  --color-navy-700: #16358a;
-  --color-navy-800: #142c69;
-  --color-navy-900: #101f48;
-  --color-navy-950: #08122b;
+  /* — Ink: the dark surfaces. The floor stack, the session room, the hero.
+       Its own ramp so a large dark panel can be tuned without dragging the
+       institutional blue along with it. ————————————————————————————————— */
+  --color-ink-50: #eef2f8;
+  --color-ink-100: #dbe3ef;
+  --color-ink-200: #b6c4dc;
+  --color-ink-300: #8399bd;
+  --color-ink-400: #52709c;
+  --color-ink-500: #33507b;
+  --color-ink-600: #223c61;
+  --color-ink-700: #182e4c;
+  --color-ink-800: #11233c;
+  --color-ink-900: #0a1b33;
+  --color-ink-950: #060f1f;
 
-  /* — Attendance ————————————————————————————————————————————————————
-     Green and amber as before. Absent is maroon: darker and cooler than the
-     brand crimson, and used as an outline so a roster never reads as a row
-     of brand-coloured buttons. */
-  --color-present-50: #e8f6f0;
-  --color-present-500: #12916a;
-  --color-present-600: #0e7c5a;
-  --color-present-700: #0a5f46;
+  /* — Piña: the only accent ————————————————————————————————————————————
+     500 is piña #F2B233. Gold marks the thing that needs you and nothing
+     else, so this ramp is deliberately short on dark steps — gold is a
+     surface and a mark, never a body text colour. */
+  --color-gold-50: #fef7e8;
+  --color-gold-100: #fdedc9;
+  --color-gold-200: #fadc95;
+  --color-gold-300: #f7c95f;
+  --color-gold-400: #f4bc43;
+  --color-gold-500: #f2b233;
+  --color-gold-600: #d9971a;
+  --color-gold-700: #b37814;
+  --color-gold-800: #8c5d12;
+  --color-gold-900: #6b4711;
 
-  --color-late-50: #fdf4e7;
-  --color-late-500: #c2700a;
-  --color-late-600: #a35d05;
-  --color-late-700: #7d4704;
+  /* — Attendance: green and red, and nothing else may use them ——————————
+     present #1B9C6B, absent #E2564D. "Late" has no hex of its own on sheet
+     01 and the calendar key shows it in the gold family, so late aliases the
+     accent rather than inventing a sixth colour. */
+  --color-present-50: #e9f7f1;
+  --color-present-100: #cdede0;
+  --color-present-200: #9fdcc4;
+  --color-present-300: #63c5a1;
+  --color-present-400: #33ae83;
+  --color-present-500: #1b9c6b;
+  --color-present-600: #157f57;
+  --color-present-700: #106243;
+  --color-present-800: #0c4a33;
+  --color-present-900: #083524;
 
-  --color-absent-50: #fbf1f2;
-  --color-absent-100: #f6dfe1;
-  --color-absent-200: #ecc0c4;
-  --color-absent-300: #d9959c;
-  --color-absent-400: #b85f69;
-  --color-absent-500: #943742;
-  --color-absent-600: #782c35;
-  --color-absent-700: #5f232b;
-  --color-absent-800: #481a20;
-  --color-absent-900: #331216;
+  --color-late-50: #fef7e8;
+  --color-late-100: #fdedc9;
+  --color-late-500: #f2b233;
+  --color-late-600: #d9971a;
+  --color-late-700: #b37814;
 
-  /* — Neutrals, warmed a touch toward the brand so greys sit with the
-       crimson rather than beside it ——————————————————————————————————— */
-  --color-slab-50: #faf8f8;
-  --color-slab-100: #f3efef;
-  --color-slab-200: #e7e0e1;
-  --color-slab-300: #cdc2c4;
-  --color-slab-400: #9c8d90;
-  --color-slab-500: #6f6265;
-  --color-slab-600: #554a4d;
-  --color-slab-700: #3a3234;
-  --color-slab-800: #241e20;
-  --color-slab-900: #150f11;
-  --color-slab-950: #0a0708;
+  --color-absent-50: #fdeeed;
+  --color-absent-100: #fadad8;
+  --color-absent-200: #f5b7b3;
+  --color-absent-300: #ee8e88;
+  --color-absent-400: #e86f67;
+  --color-absent-500: #e2564d;
+  --color-absent-600: #c63f37;
+  --color-absent-700: #a2312a;
+  --color-absent-800: #7d2621;
+  --color-absent-900: #5c1c18;
 
-  /* — Type ————————————————————————————————————————————————————————————
-     The serif speaks, the sans operates, the mono records.
+  /* — Buddy: study-buddy activity, so social never reads as official ————
+       500 is #7A5AD1. */
+  --color-buddy-50: #f1edfb;
+  --color-buddy-100: #e4dcf7;
+  --color-buddy-200: #cbbcef;
+  --color-buddy-300: #ac94e4;
+  --color-buddy-400: #9376da;
+  --color-buddy-500: #7a5ad1;
+  --color-buddy-600: #6444b8;
+  --color-buddy-700: #513694;
+  --color-buddy-800: #3e2a72;
+  --color-buddy-900: #2c1e52;
 
-     Serif is reserved for h1 and h2 — the places the school is talking in its
-     own voice. Card titles and list headings stay in the sans, because a
-     serif at 18px inside a dense roster reads fussy rather than authoritative.
+  /* — Neutrals, cooled toward the ink so greys sit with the blue rather
+       than beside it ——————————————————————————————————————————————————— */
+  --color-slab-50: #f8fafc;
+  --color-slab-100: #f0f3f8;
+  --color-slab-200: #e2e7f0;
+  --color-slab-300: #c8d0de;
+  --color-slab-400: #94a0b5;
+  --color-slab-500: #66738b;
+  --color-slab-600: #4c586d;
+  --color-slab-700: #354054;
+  --color-slab-800: #1f2938;
+  --color-slab-900: #121a26;
+  --color-slab-950: #0a1119;
 
-     Mono is not decoration: it marks every piece of school-issued data —
+  /* — Type —————————————————————————————————————————————————————————————
+     Sheet 01: Bricolage Grotesque for display — headings, numbers, screen
+     titles. Instrument Sans for body, labels, buttons; sentence case
+     everywhere. IBM Plex Mono carries every piece of school-issued data:
      student numbers, room codes, times, percentages. If it came off an
-     official record, it's mono. */
-  --font-display: var(--font-display-face), ui-serif, Georgia, "Times New Roman", serif;
+     official record, it is monospaced. */
+  --font-display: var(--font-display-face), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-data), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --radius-card: 0.875rem;
-  --radius-field: 0.625rem;
+  /* — Grid and radii ————————————————————————————————————————————————————
+     Sheet 01 components: 18px screen gutter, 8px base spacing, 14px cards,
+     20px heroes, 44px device. Tap targets never below 44px. */
+  --radius-card: 14px;
+  --radius-hero: 20px;
+  --radius-field: 10px;
+  --radius-device: 44px;
 
-  --shadow-card: 0 1px 2px rgb(21 15 17 / 0.04), 0 8px 24px -18px rgb(21 15 17 / 0.35);
-  --shadow-raised: 0 2px 4px rgb(21 15 17 / 0.06), 0 16px 32px -20px rgb(21 15 17 / 0.45);
+  --shadow-card: 0 1px 2px rgb(10 27 51 / 0.04), 0 8px 24px -18px rgb(10 27 51 / 0.35);
+  --shadow-raised: 0 2px 4px rgb(10 27 51 / 0.06), 0 16px 32px -20px rgb(10 27 51 / 0.45);
+  --shadow-hero: 0 2px 6px rgb(10 27 51 / 0.10), 0 24px 48px -28px rgb(10 27 51 / 0.55);
 }
 
 /* ── Theme-dependent surfaces ─────────────────────────────────────────────
@@ -111,36 +151,36 @@
    than it runs at night. Dark is a proper second design, not an inversion. */
 
 :root {
-  --page: #faf8f8;
+  --page: #f7f9fc;
   --surface: #ffffff;
-  --surface-sunk: #f3efef;
-  --surface-invert: #150f11;
-  --hairline: #e7e0e1;
-  --hairline-strong: #cdc2c4;
-  --content: #150f11;
-  --content-muted: #554a4d;
-  --content-faint: #7d6f72;
-  --content-invert: #faf8f8;
-  --focus: #a6192e;
-  /* Structural hairline for the Swiss landing: the type colour itself,
-     not the soft grey used for card edges inside the app. */
-  --rule: #150f11;
+  --surface-sunk: #f0f3f8;
+  --surface-invert: #0a1b33;
+  --hairline: #e2e7f0;
+  --hairline-strong: #c8d0de;
+  --content: #0a1b33;
+  --content-muted: #4c586d;
+  --content-faint: #7c88a0;
+  --content-invert: #f7f9fc;
+  --focus: #14459c;
+  /* Structural hairline for the Swiss landing: the type colour itself, not
+     the soft grey used for card edges inside the app. */
+  --rule: #0a1b33;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0a0708;
-    --surface: #191315;
-    --surface-sunk: #110c0e;
-    --surface-invert: #faf8f8;
-    --hairline: #332a2d;
-    --hairline-strong: #4a3d41;
-    --content: #f3efef;
-    --content-muted: #bdaeb1;
-    --content-faint: #8d7e81;
-    --content-invert: #150f11;
-    --focus: #f79ba8;
-    --rule: #f3efef;
+    --page: #060f1f;
+    --surface: #11233c;
+    --surface-sunk: #0a1b33;
+    --surface-invert: #f7f9fc;
+    --hairline: #1e3350;
+    --hairline-strong: #2c4568;
+    --content: #eef2f8;
+    --content-muted: #b6c4dc;
+    --content-faint: #8399bd;
+    --content-invert: #0a1b33;
+    --focus: #f2b233;
+    --rule: #eef2f8;
   }
 }
 
@@ -174,28 +214,25 @@
     color: var(--content);
     font-family: var(--font-sans);
     font-size: 1rem;
-    line-height: 1.6;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  /* Only h1 and h2 take the serif. A serif needs far less negative tracking
-     than a grotesque — the -0.02em that suited the old face closes this one
-     up until the counters fill in. */
-  h1, h2 {
+  /* Display carries headings and screen titles. Bricolage is a grotesque with
+     an optical-size axis, so it takes real negative tracking at heading sizes
+     without the counters filling in. */
+  h1, h2, h3, h4 {
     font-family: var(--font-display);
     font-weight: 600;
-    letter-spacing: -0.011em;
-    line-height: 1.12;
+    letter-spacing: -0.018em;
+    line-height: 1.15;
     text-wrap: balance;
   }
 
-  /* h3 and h4 are interface furniture, so they inherit the sans from body. */
   h3, h4 {
-    font-weight: 600;
-    letter-spacing: -0.006em;
-    line-height: 1.3;
-    text-wrap: balance;
+    letter-spacing: -0.012em;
+    line-height: 1.25;
   }
 
   /* Every focusable thing gets a visible ring. Students tab through these
@@ -218,12 +255,22 @@
 }
 
 @layer utilities {
-  /* School-issued data. Pairs with font-mono to mark anything that came off
-     an official record. */
+  /* School-issued data. Marks anything that came off an official record —
+     student numbers, room codes, times, percentages, grades. */
   .data {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "zero" 1;
+  }
+
+  /* A figure the app worked out rather than one the school issued: a term
+     rate, an absence budget, a GWA, a queue length. Display face, tight. */
+  .figure {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
   }
 
   /* Section eyebrow — small, tracked-out, mono. */
@@ -233,14 +280,49 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--content-faint);
+    line-height: 1.4;
   }
 
   .safe-bottom {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
-}
+  /* 18px screen gutter, per sheet 01. */
+  .px-gutter {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
 
+  /* The dark map mode. Sheet 04.3: the floor stack is the one screen that
+     behaves like a map and should feel like a different mode. Redefining the
+     surface tokens inside the scope means every card and hairline within it
+     follows without a second set of classes. */
+  .surface-ink {
+    background-color: var(--color-ink-900);
+    --hairline: #1e3350;
+    --hairline-strong: #2c4568;
+    --content: #eef2f8;
+    --content-muted: #b6c4dc;
+    --content-faint: #8399bd;
+    --surface: #11233c;
+    --surface-sunk: #060f1f;
+    color: var(--content);
+  }
+
+  /* Sheet 07.3: the session room is the students' own space, and is purple,
+     dark, and clearly not a school system. */
+  .surface-buddy {
+    background-color: var(--color-buddy-900);
+    --hairline: #46307f;
+    --hairline-strong: #573d99;
+    --content: #f1edfb;
+    --content-muted: #cbbcef;
+    --content-faint: #ac94e4;
+    --surface: #3e2a72;
+    --surface-sunk: #241843;
+    color: var(--content);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,
