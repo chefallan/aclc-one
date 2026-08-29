@@ -209,8 +209,15 @@ export default function StudyBuddyPage() {
         setError((err as Error).message || "Study Buddy couldn't answer. Try again.");
       }
     } finally {
+      // An answer that never arrived leaves no bubble behind. A hollow one
+      // reads as a reply Study Buddy is still composing, and it outlives the
+      // failure - so a student who asks twice ends up staring at two of them
+      // while the real explanation sits in the banner above.
       setMessages((prev) =>
-        prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m))
+        prev.flatMap((m) => {
+          if (m.id !== assistantId) return [m];
+          return m.content ? [{ ...m, streaming: false }] : [];
+        })
       );
       setBusy(false);
       abortRef.current = null;
@@ -227,7 +234,10 @@ export default function StudyBuddyPage() {
   const empty = messages.length === 0;
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-9rem)] max-w-3xl flex-col md:h-[calc(100dvh-7rem)]">
+    // One height at every width, deliberately. A student keeps the bottom tab
+    // bar on a desktop too, so the old md: override - which assumed the wider
+    // screen had less chrome - ran the composer underneath it.
+    <div className="mx-auto flex h-[calc(100dvh-10.5rem)] max-w-3xl flex-col">
       <header className="flex items-center justify-between gap-3 pb-3">
         <div>
           <p className="eyebrow">Study</p>

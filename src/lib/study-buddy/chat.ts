@@ -79,24 +79,79 @@ export async function* streamChat(options: StreamChatOptions): AsyncGenerator<st
     );
   }
 
-  const stream = await ai.client.chat.completions.create(
-    {
-      model: ai.model,
-      stream: true,
-      temperature: 0.4,
-      max_tokens: 900,
-      messages: [
-        { role: "system", content: options.systemPrompt },
-        ...options.messages.map((m) => ({ role: m.role, content: m.content }) as const),
-      ],
-    },
-    { signal: options.signal }
-  );
+  try {
+    const stream = await ai.client.chat.completions.create(
+      {
+        model: ai.model,
+        stream: true,
+        temperature: 0.4,
+        max_tokens: 900,
+        messages: [
+          { role: "system", content: options.systemPrompt },
+          ...options.messages.map((m) => ({ role: m.role, content: m.content }) as const),
+        ],
+      },
+      { signal: options.signal }
+    );
 
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content;
-    if (delta) yield delta;
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) yield delta;
+    }
+  } catch (error) {
+    // A cancelled request is the student closing the tab, not a fault.
+    if (options.signal?.aborted) throw error;
+    throw translateUpstreamError(error, ai.model);
   }
+}
+
+/**
+ * Turns an error from the model provider into something worth showing.
+ *
+ * The distinction that matters is whether asking again could ever work.
+ * A retired or misspelled model returns the same failure forever, and
+ * telling a student to "try again" sends them round a loop no amount of
+ * retrying escapes - the fix is an administrator changing a setting.
+ *
+ * Transient failures are rethrown untranslated, so the caller's generic
+ * "try again" applies to the cases where trying again is the right advice.
+ */
+function translateUpstreamError(error: unknown, model: string): unknown {
+  const status = (error as { status?: number } | undefined)?.status;
+  const upstream = (error as { message?: string } | undefined)?.message ?? String(error);
+
+  // The provider's own words go to the log, where an administrator can read
+  // them. They are not shown to the student, who cannot act on them.
+  console.error(`Study Buddy upstream failure (model "${model}", status ${status}):`, upstream);
+
+  // 410 Gone is Ollama retiring a model; 404 is a name that never existed.
+  if (status === 404 || status === 410) {
+    return new ChatUnavailableError(
+      `Study Buddy is pointed at "${model}", which the AI provider no longer offers. ` +
+        "Asking again will not help - an administrator needs to set a current model."
+    );
+  }
+
+  if (status === 400) {
+    return new ChatUnavailableError(
+      "Study Buddy sent something the AI provider refused. An administrator needs to check its configuration."
+    );
+  }
+
+  if (status === 401 || status === 403) {
+    return new ChatUnavailableError(
+      "Study Buddy's access to the AI provider was refused. Ask your administrator to check the API key."
+    );
+  }
+
+  if (status === 429) {
+    return new ChatUnavailableError(
+      "Study Buddy is over its usage limit for now. Try again in a few minutes."
+    );
+  }
+
+  // Anything else - a network blip, a 5xx - genuinely may work on a retry.
+  return error;
 }
 
 export class ChatUnavailableError extends Error {
