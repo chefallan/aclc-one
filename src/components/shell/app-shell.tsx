@@ -106,35 +106,23 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === href : pathname.startsWith(href);
 
+  /** Staff carry nine or more destinations; students have a tab bar already. */
+  const hasSidebar = !isStudent;
+
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className={cn("flex min-h-dvh flex-col", hasSidebar && "md:pl-60")}>
+      {hasSidebar && <Sidebar items={items} isActive={isActive} />}
+
       <header data-print="hide" className="sticky top-0 z-40 border-b border-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
+          <Link
+            href="/dashboard"
+            className={cn("flex items-center gap-2.5", hasSidebar && "md:hidden")}
+          >
             <Mark />
             <span className="text-[0.95rem] font-semibold tracking-tight">ACLC One</span>
           </Link>
 
-          {/* Desktop nav for staff; students navigate from the tab bar. */}
-          {!isStudent && (
-            <nav className="ml-4 hidden items-center gap-0.5 md:flex">
-              {items.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive(item.href) ? "page" : undefined}
-                  className={cn(
-                    "rounded-field px-3 py-1.5 text-sm font-medium transition-colors",
-                    isActive(item.href)
-                      ? "bg-brand-50 text-brand-800 dark:bg-brand-950 dark:text-brand-200"
-                      : "text-content-muted hover:bg-surface-sunk hover:text-content"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          )}
 
           <div className="ml-auto flex items-center gap-1">
             <NotificationBell />
@@ -163,14 +151,21 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
                 <span className="sr-only">{menuOpen ? "Close menu" : "Open menu"}</span>
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/auth/signin" })}
-              className="hidden size-11 items-center justify-center rounded-field text-content-muted hover:bg-surface-sunk hover:text-absent-600 md:inline-flex"
-            >
-              <LogOut className="size-4.5" />
-              <span className="sr-only">Sign out</span>
-            </button>
+            {/* Only where nothing else offers it. Staff sign out from the
+                sidebar above md and from the hamburger menu below it; a
+                student has neither, so the header keeps the button for them.
+                Expressed as a condition rather than md:inline-flex plus
+                md:hidden, which is two rules fighting at the same width. */}
+            {!hasSidebar && (
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+                className="hidden size-11 items-center justify-center rounded-field text-content-muted hover:bg-surface-sunk hover:text-absent-600 md:inline-flex"
+              >
+                <LogOut className="size-4.5" />
+                <span className="sr-only">Sign out</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -205,12 +200,93 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
         )}
       </header>
 
-      <main id="main" className={cn("mx-auto w-full max-w-6xl flex-1 px-4 py-5", isStudent && "pb-28")}>
+      <main
+        id="main"
+        className={cn(
+          "mx-auto w-full flex-1 px-4 py-5",
+          // Without a sidebar the content is centred in a readable column. With
+          // one, the column is already offset, so it gets the rest of the room.
+          hasSidebar ? "max-w-6xl md:max-w-none md:pr-6" : "max-w-6xl",
+          isStudent && "pb-28"
+        )}
+      >
         {children}
       </main>
 
       {isStudent && <StudentTabBar items={items} isActive={isActive} />}
     </div>
+  );
+}
+
+/**
+ * The staff sidebar.
+ *
+ * Nine destinations do not fit in a row, and the header had started to squeeze
+ * them until the labels were the only thing left. Stacked, each one gets an
+ * icon and full label, and the list has somewhere to grow.
+ *
+ * Only from `lg` up. Below that the header keeps its row and its hamburger,
+ * both of which already worked - there is no reason to make a narrow screen
+ * carry a 240px column.
+ */
+function Sidebar({
+  items,
+  isActive,
+}: {
+  items: NavItem[];
+  isActive: (href: string) => boolean;
+}) {
+  return (
+    <aside
+      data-print="hide"
+      className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-hairline bg-surface md:flex"
+    >
+      <Link
+        href="/dashboard"
+        className="flex h-14 shrink-0 items-center gap-2.5 border-b border-hairline px-4"
+      >
+        <Mark />
+        <span className="text-[0.95rem] font-semibold tracking-tight">ACLC One</span>
+      </Link>
+
+      {/* Scrolls on its own: a short laptop screen must not cut the list off
+          with no way to reach the rest. */}
+      <nav aria-label="Main" className="flex-1 overflow-y-auto p-2">
+        <ul className="space-y-0.5">
+          {items.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-field px-3 py-2 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-brand-50 text-brand-800 dark:bg-brand-950 dark:text-brand-200"
+                      : "text-content-muted hover:bg-surface-sunk hover:text-content"
+                  )}
+                >
+                  <item.icon className="size-4.5 shrink-0" />
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      <div className="shrink-0 border-t border-hairline p-2">
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+          className="flex w-full items-center gap-3 rounded-field px-3 py-2 text-sm font-medium text-content-muted transition-colors hover:bg-surface-sunk hover:text-absent-600"
+        >
+          <LogOut className="size-4.5 shrink-0" />
+          Sign out
+        </button>
+      </div>
+    </aside>
   );
 }
 

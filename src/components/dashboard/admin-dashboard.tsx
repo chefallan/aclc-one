@@ -92,7 +92,10 @@ export function AdminDashboard({ stats, recentSessions }: AdminDashboardProps) {
             <Link
               key={a.href}
               href={a.href}
-              className="group flex items-center gap-3.5 rounded-card border border-hairline bg-surface p-4 shadow-card transition-colors hover:border-brand-300"
+              // min-w-0: a grid item defaults to min-width:auto and so refuses to shrink
+              // below its own content, which pushed these cards past the screen at
+              // phone width and gave the page a horizontal scroll.
+              className="group flex min-w-0 items-center gap-3.5 rounded-card border border-hairline bg-surface p-4 shadow-card transition-colors hover:border-brand-300"
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
                 <a.icon className="size-5" />
