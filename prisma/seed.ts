@@ -30,16 +30,46 @@ const STUDENTS = [
 ];
 
 /**
- * Everything below is created with a published password, including an ADMIN
- * who can approve accounts. Run against a real deployment and you have handed
- * the school out. Printing a warning at the end is not enough — by then the
- * rows exist — so this refuses up front.
+ * Is this a database it is safe to fill with demo data?
  *
- * Set SEED_ANYWAY=1 if you genuinely mean to seed a production-flagged
- * environment, e.g. a staging box that runs with NODE_ENV=production.
+ * Only a local one. NODE_ENV is the wrong question: it reads "development" on
+ * a laptop whose DATABASE_URL points at the live Supabase, which is exactly
+ * how this seed once ran against a real school's database and created an
+ * administrator whose password is published in this file.
+ *
+ * The host is the honest signal.
  */
+function isLocalDatabase(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "db";
+  } catch {
+    return false;
+  }
+}
+
 function refuseInProduction() {
-  if (process.env.NODE_ENV !== "production" || process.env.SEED_ANYWAY === "1") return;
+  if (process.env.SEED_ANYWAY === "1") return;
+
+  if (!isLocalDatabase(process.env.DATABASE_URL)) {
+    let where = "an unreadable DATABASE_URL";
+    try {
+      where = new URL(process.env.DATABASE_URL ?? "").hostname;
+    } catch {
+      /* keep the fallback */
+    }
+    console.error("");
+    console.error(`  Refusing to seed: DATABASE_URL points at ${where}, which is not local.`);
+    console.error("  This seed creates accounts sharing one published password,");
+    console.error("  including an administrator. It belongs on a local database only.");
+    console.error("");
+    console.error("  If you genuinely mean it, re-run with SEED_ANYWAY=1.");
+    console.error("");
+    process.exit(1);
+  }
+
+  if (process.env.NODE_ENV !== "production") return;
   console.error("");
   console.error("  Refusing to seed: NODE_ENV=production.");
   console.error("  These accounts share one published password and include an admin.");
