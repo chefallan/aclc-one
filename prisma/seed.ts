@@ -144,7 +144,7 @@ async function main() {
     prisma.program.create({ data: { code: "BSCS", name: "BS Computer Science" } }),
     prisma.program.create({ data: { code: "BSBA", name: "BS Business Administration" } }),
     prisma.program.create({ data: { code: "BSHM", name: "BS Hospitality Management" } }),
-    prisma.program.create({ data: { code: "WADT", name: "Web & App Development Technology" } }),
+    prisma.program.create({ data: { code: "WADT", name: "Web Application Development Technology" } }),
   ]);
 
   const sections = await Promise.all([

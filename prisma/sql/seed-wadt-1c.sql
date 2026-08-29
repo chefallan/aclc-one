@@ -1,26 +1,33 @@
--- BSCS-1A — section + official block timetable
+-- WADT-1C — section + official block timetable
 --
--- Transcribed from the printed registrar sheet. Times on that sheet are
--- 12-hour with no AM/PM marker; everything from "1:00" down is afternoon, so
--- it is stored here as 24-hour "HH:mm" to match section_schedule_entries.
+-- Transcribed from the printed registrar sheet. The sheet is headed "BSCS-1A"
+-- but the block it describes is WADT-1C, so that is where it is loaded.
 --
--- Safe to re-run. The program, academic year and section are inserted only if
--- absent; the timetable is rebuilt from scratch each time (see the DELETE
--- below, which is scoped to this one section).
+-- Times on that sheet are 12-hour with no AM/PM marker; everything from "1:00"
+-- down is afternoon, so it is stored here as 24-hour "HH:mm" to match
+-- section_schedule_entries.
+--
+-- Safe to re-run. The academic year and section are inserted only if absent;
+-- the timetable is rebuilt from scratch each time (see the DELETE below, which
+-- is scoped to this one section).
 --
 -- Edit these two literals if your data uses different names:
 --   academic year : '2026-2027'
---   program code  : 'BSCS'
+--   program code  : 'WADT'
 --
--- Run with:  psql "$DATABASE_URL" -f prisma/sql/seed-bscs-1a.sql
+-- Run with:  psql "$DATABASE_URL" -f prisma/sql/seed-wadt-1c.sql
 
 BEGIN;
 
 -- ─── Programme ───────────────────────────────────────────────────────────────
+-- The name is corrected on an existing row: prisma/seed.ts writes "Web & App
+-- Development Technology", which is not what the programme is called.
 
 INSERT INTO programs (id, code, name, status, created_at, updated_at)
-VALUES ('prog_bscs', 'BSCS', 'BS Computer Science', 'ACTIVE', NOW(), NOW())
-ON CONFLICT (code) DO NOTHING;
+VALUES ('prog_wadt', 'WADT', 'Web Application Development Technology', 'ACTIVE', NOW(), NOW())
+ON CONFLICT (code) DO UPDATE
+  SET name = EXCLUDED.name,
+      updated_at = NOW();
 
 -- ─── Academic year ───────────────────────────────────────────────────────────
 
@@ -31,39 +38,56 @@ ON CONFLICT (name) DO NOTHING;
 -- ─── Section ─────────────────────────────────────────────────────────────────
 
 INSERT INTO sections (id, name, year_level, status, academic_year_id, program_id, adviser_id, created_at, updated_at)
-SELECT 'sec_bscs_1a', 'BSCS-1A', 1, 'ACTIVE', ay.id, p.id, NULL, NOW(), NOW()
+SELECT 'sec_wadt_1c', 'WADT-1C', 1, 'ACTIVE', ay.id, p.id, NULL, NOW(), NOW()
 FROM academic_years ay
 CROSS JOIN programs p
 WHERE ay.name = '2026-2027'
-  AND p.code = 'BSCS'
+  AND p.code = 'WADT'
 ON CONFLICT (academic_year_id, program_id, name) DO NOTHING;
 
 -- ─── Subjects ────────────────────────────────────────────────────────────────
 -- The timetable itself carries subject codes as free text and does not need
--- these rows. Grades do — a mark has to hang off a subject. Units are the
+-- these rows. Grades do — a mark has to hang off a subject.
+--
+-- program_id is NULL for the general education subjects, which belong to no
+-- single programme, and set for the three that are WADT's own. Units are the
 -- usual Philippine load and are the one thing here not taken from the sheet;
 -- check them against the curriculum before grades are encoded.
 
 INSERT INTO subjects (id, code, title, units, status, program_id, created_at, updated_at)
-SELECT 'subj_' || lower(v.code), v.code, v.title, v.units, 'ACTIVE', p.id, NOW(), NOW()
+SELECT
+  'subj_' || lower(v.code),
+  v.code,
+  v.title,
+  v.units,
+  'ACTIVE',
+  CASE WHEN v.owned_by_program THEN p.id ELSE NULL END,
+  NOW(),
+  NOW()
 FROM (VALUES
-  ('GE6114',    'Mathematics in the Modern World',      3.0),
-  ('GE6106',    'Purposive Communication 1',            3.0),
-  ('MATH6316',  'Linear Algebra',                       3.0),
-  ('ITE6101',   'Computer Fundamentals',                3.0),
-  ('NSTP6101',  'National Service Training Program 1',  3.0),
-  ('ETHNS6101', 'Euthenics 1',                          1.0),
-  ('PHYED6104', 'PATHFIT 1',                            2.0),
-  ('GE6100',    'Understanding the Self',               3.0),
-  ('ITE6102',   'Computer Programming 1',               3.0)
-) AS v(code, title, units)
+  ('GE6114',    'Mathematics in the Modern World',      3.0, false),
+  ('GE6106',    'Purposive Communication 1',            3.0, false),
+  ('MATH6316',  'Linear Algebra',                       3.0, true),
+  ('ITE6101',   'Computer Fundamentals',                3.0, true),
+  ('NSTP6101',  'National Service Training Program 1',  3.0, false),
+  ('ETHNS6101', 'Euthenics 1',                          1.0, false),
+  ('PHYED6104', 'PATHFIT 1',                            2.0, false),
+  ('GE6100',    'Understanding the Self',               3.0, false),
+  ('ITE6102',   'Computer Programming 1',               3.0, true)
+) AS v(code, title, units, owned_by_program)
 CROSS JOIN programs p
-WHERE p.code = 'BSCS'
-ON CONFLICT (code) DO NOTHING;
+WHERE p.code = 'WADT'
+ON CONFLICT (code) DO UPDATE
+  SET title = EXCLUDED.title,
+      program_id = EXCLUDED.program_id,
+      updated_at = NOW();
 
 -- ─── Timetable ───────────────────────────────────────────────────────────────
 -- Rebuilt on every run: section_schedule_entries has no unique key, so without
--- this the entries would double. Scoped to BSCS-1A and nothing else.
+-- this the entries would double. Scoped to WADT-1C and nothing else.
+--
+-- Note this replaces whatever WADT-1C had before, including the six-subject
+-- placeholder block that prisma/seed.ts writes.
 
 DELETE FROM section_schedule_entries
 WHERE section_id IN (
@@ -71,9 +95,9 @@ WHERE section_id IN (
   FROM sections s
   JOIN academic_years ay ON ay.id = s.academic_year_id
   JOIN programs p ON p.id = s.program_id
-  WHERE s.name = 'BSCS-1A'
+  WHERE s.name = 'WADT-1C'
     AND ay.name = '2026-2027'
-    AND p.code = 'BSCS'
+    AND p.code = 'WADT'
 );
 
 -- Instructor names are verbatim from the sheet. "New Math 2", "New ISM" and
@@ -83,7 +107,7 @@ WHERE section_id IN (
 INSERT INTO section_schedule_entries
   (id, subject_code, subject_title, day, start_time, end_time, room, instructor, section_id, created_at, updated_at)
 SELECT
-  'sched_bscs1a_' || lpad((row_number() OVER (ORDER BY v.ord, d.day))::text, 2, '0'),
+  'sched_wadt1c_' || lpad((row_number() OVER (ORDER BY v.ord, d.day))::text, 2, '0'),
   v.code,
   v.title,
   d.day::"Weekday",
@@ -116,9 +140,9 @@ CROSS JOIN (
   FROM sections s
   JOIN academic_years ay ON ay.id = s.academic_year_id
   JOIN programs p ON p.id = s.program_id
-  WHERE s.name = 'BSCS-1A'
+  WHERE s.name = 'WADT-1C'
     AND ay.name = '2026-2027'
-    AND p.code = 'BSCS'
+    AND p.code = 'WADT'
 ) AS s;
 
 COMMIT;
@@ -129,7 +153,22 @@ COMMIT;
 SELECT e.day, e.start_time, e.end_time, e.subject_code, e.subject_title, e.room, e.instructor
 FROM section_schedule_entries e
 JOIN sections s ON s.id = e.section_id
-WHERE s.name = 'BSCS-1A'
+WHERE s.name = 'WADT-1C'
 ORDER BY
   array_position(ARRAY['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY']::"Weekday"[], e.day),
   e.start_time;
+
+-- ─── If an earlier run created BSCS-1A ───────────────────────────────────────
+-- The first version of this script loaded the sheet against a BSCS-1A section.
+-- If you ran it, this removes that section and its 21 entries. Read it before
+-- running it, and drop the second statement if BSCS is a real programme here.
+-- Deliberately left commented out and outside the transaction above.
+--
+--   DELETE FROM sections s
+--   USING academic_years ay, programs p
+--   WHERE s.academic_year_id = ay.id AND s.program_id = p.id
+--     AND s.name = 'BSCS-1A' AND ay.name = '2026-2027' AND p.code = 'BSCS';
+--
+--   DELETE FROM programs p
+--   WHERE p.code = 'BSCS'
+--     AND NOT EXISTS (SELECT 1 FROM sections s WHERE s.program_id = p.id);
