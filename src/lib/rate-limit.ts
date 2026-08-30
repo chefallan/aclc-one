@@ -21,6 +21,8 @@ export const limiters = {
   apiRead: createLimiter("api_read", 100, 60), // 100 requests per minute
   // Strict: AI generation
   ai: createLimiter("ai", 10, 60), // 10 AI requests per minute
+  // Strict: AI Flashcard generation from notes (4 generations per 5 hours)
+  aiFlashcards: createLimiter("ai_flashcards", 4, 5 * 60 * 60), // 4 generations per 5 hours
 };
 
 export async function rateLimit(

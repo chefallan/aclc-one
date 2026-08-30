@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { NotebookPen, Search, Plus, Pin, X, TriangleAlert } from "lucide-react";
+import { NotebookPen, Search, Plus, Pin, X, TriangleAlert, Sparkles, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StudyTabs } from "@/components/study/study-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { AiFlashcardModal } from "@/components/study/AiFlashcardModal";
+import { PublishDeckModal } from "@/components/study/PublishDeckModal";
 
 interface Note {
   id: string;
@@ -35,6 +37,18 @@ export default function NotesPage() {
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
   const [tags, setTags] = React.useState("");
+
+  // AI Modal state
+  const [aiModalOpen, setAiModalOpen] = React.useState(false);
+  const [modalInitialText, setModalInitialText] = React.useState("");
+  const [modalInitialTitle, setModalInitialTitle] = React.useState("");
+
+  // Publish Modal state
+  const [publishModalOpen, setPublishModalOpen] = React.useState(false);
+  const [publishNote, setPublishNote] = React.useState<{ id?: string; title: string; content: string }>({
+    title: "",
+    content: "",
+  });
 
   React.useEffect(() => {
     let cancelled = false;
@@ -97,6 +111,17 @@ export default function NotesPage() {
     }
   }
 
+  function openAiWithNote(noteTitle: string, noteContent: string) {
+    setModalInitialTitle(noteTitle);
+    setModalInitialText(noteContent);
+    setAiModalOpen(true);
+  }
+
+  function openPublishWithNote(noteTitle: string, noteContent: string, noteId?: string) {
+    setPublishNote({ id: noteId, title: noteTitle, content: noteContent });
+    setPublishModalOpen(true);
+  }
+
   const query = search.trim().toLowerCase();
   const filtered = notes.filter(
     (n) =>
@@ -112,17 +137,23 @@ export default function NotesPage() {
     <div className="mx-auto max-w-3xl space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl">Study</h1>
+          <h1 className="text-2xl font-bold">Study Notes</h1>
           <p className="mt-1 text-sm text-content-muted">
-            Filed by the class you were in. Nothing to name, nothing to sort.
+            Write notes, convert to flashcards with AI, or publish to the community library.
           </p>
         </div>
-        {!editorOpen && (
-          <Button onClick={() => setEditorOpen(true)}>
-            <Plus className="size-4" />
-            New note
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => openAiWithNote(title, content)}>
+            <Sparkles className="size-4 mr-1.5" />
+            AI Flashcards
           </Button>
-        )}
+          {!editorOpen && (
+            <Button onClick={() => setEditorOpen(true)}>
+              <Plus className="size-4 mr-1.5" />
+              New note
+            </Button>
+          )}
+        </div>
       </header>
 
       <StudyTabs />
@@ -142,7 +173,7 @@ export default function NotesPage() {
           <CardContent className="p-4">
             <form onSubmit={saveNote} className="space-y-3">
               <div className="flex items-center justify-between">
-                <label htmlFor="note-title" className="eyebrow">
+                <label htmlFor="note-title" className="text-xs font-semibold uppercase text-content-muted">
                   New note
                 </label>
                 <Button
@@ -165,7 +196,7 @@ export default function NotesPage() {
               />
               <Textarea
                 aria-label="Note body"
-                placeholder="Write here. Photograph the board and type the three things that matter."
+                placeholder="Write here. Photograph the board and type the key points that matter."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={7}
@@ -178,13 +209,38 @@ export default function NotesPage() {
                 onChange={(e) => setTags(e.target.value)}
               />
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setEditorOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Save note"}
-                </Button>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!content.trim()}
+                    onClick={() => openAiWithNote(title, content)}
+                  >
+                    <Sparkles className="size-3.5 mr-1.5" />
+                    Convert to Cards
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!content.trim()}
+                    onClick={() => openPublishWithNote(title || "Untitled Note", content)}
+                  >
+                    <Share2 className="size-3.5 mr-1.5" />
+                    Publish to Library
+                  </Button>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setEditorOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? "Saving…" : "Save note"}
+                  </Button>
+                </div>
               </div>
             </form>
           </CardContent>
@@ -217,12 +273,12 @@ export default function NotesPage() {
           <CardContent className="p-10 text-center">
             <NotebookPen className="mx-auto size-8 text-content-faint" />
             <p className="mt-3 font-medium">
-              {query ? "Nothing matches that" : "Wala pa. Start your first notebook."}
+              {query ? "Nothing matches that" : "No notes yet. Create your first note above."}
             </p>
             <p className="mt-1 text-sm text-content-muted">
               {query
                 ? "Try a different word."
-                : "Notes you write here stay yours until you share them."}
+                : "Notes you write here can be converted to flashcards with AI or published to the library."}
             </p>
           </CardContent>
         </Card>
@@ -230,32 +286,65 @@ export default function NotesPage() {
         <div className="space-y-5">
           {pinned.length > 0 && (
             <section aria-labelledby="pinned-heading">
-              <h2 id="pinned-heading" className="eyebrow mb-2.5">
+              <h2 id="pinned-heading" className="text-xs font-semibold uppercase text-content-muted mb-2.5">
                 Pinned
               </h2>
-              <NoteGrid notes={pinned} />
+              <NoteGrid
+                notes={pinned}
+                onGenerateCards={openAiWithNote}
+                onPublish={openPublishWithNote}
+              />
             </section>
           )}
           <section aria-labelledby="all-heading">
             {pinned.length > 0 && (
-              <h2 id="all-heading" className="eyebrow mb-2.5">
+              <h2 id="all-heading" className="text-xs font-semibold uppercase text-content-muted mb-2.5">
                 Everything else
               </h2>
             )}
-            <NoteGrid notes={rest} />
+            <NoteGrid
+              notes={rest}
+              onGenerateCards={openAiWithNote}
+              onPublish={openPublishWithNote}
+            />
           </section>
         </div>
       )}
+
+      {/* AI Card Generator Modal */}
+      <AiFlashcardModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        initialText={modalInitialText}
+        initialTitle={modalInitialTitle}
+      />
+
+      {/* Publish to Library Modal */}
+      <PublishDeckModal
+        isOpen={publishModalOpen}
+        onClose={() => setPublishModalOpen(false)}
+        title={publishNote.title}
+        content={publishNote.content}
+        noteId={publishNote.id}
+      />
     </div>
   );
 }
 
-function NoteGrid({ notes }: { notes: Note[] }) {
+function NoteGrid({
+  notes,
+  onGenerateCards,
+  onPublish,
+}: {
+  notes: Note[];
+  onGenerateCards: (title: string, content: string) => void;
+  onPublish: (title: string, content: string, noteId?: string) => void;
+}) {
   return (
     <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {notes.map((note) => (
         <li key={note.id}>
-          <Card className="h-full transition-colors hover:border-brand-300">
+          <Card className="h-full flex flex-col justify-between transition-colors hover:border-brand-300">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-2">
                 <p className="line-clamp-1 font-medium">{note.title}</p>
@@ -274,15 +363,27 @@ function NoteGrid({ notes }: { notes: Note[] }) {
                   ))}
                 </div>
               )}
-
-              <p className="data mt-3 text-[0.68rem] text-content-faint">
-                {new Date(note.updatedAt).toLocaleDateString([], {
-                  month: "short",
-                  day: "numeric",
-                })}
-                {note.folder ? ` · ${note.folder.name}` : ""}
-              </p>
             </CardContent>
+
+            <div className="flex items-center justify-between border-t border-hairline px-4 py-2 text-[0.68rem] text-content-faint">
+              <button
+                type="button"
+                onClick={() => onPublish(note.title, note.content, note.id)}
+                className="flex items-center gap-1 font-medium text-content-muted hover:text-content transition-colors"
+              >
+                <Share2 className="size-3" />
+                Publish
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onGenerateCards(note.title, note.content)}
+                className="flex items-center gap-1 font-medium text-brand-600 hover:text-brand-800 dark:text-brand-400 dark:hover:text-brand-200 transition-colors"
+              >
+                <Sparkles className="size-3" />
+                Make Cards
+              </button>
+            </div>
           </Card>
         </li>
       ))}

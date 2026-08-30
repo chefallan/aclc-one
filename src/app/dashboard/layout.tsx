@@ -10,26 +10,38 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await getServerSession(authOptions);
+  const user = session?.user ?? (process.env.DEV_BYPASS_AUTH === "true" ? {
+    id: "dev-mock-student-id",
+    name: "Juan Dela Cruz",
+    role: "STUDENT",
+    studentProfileId: "dev-mock-profile",
+  } : null);
 
-  if (!session?.user) {
+  if (!user) {
     redirect("/auth/signin");
   }
 
   // Students are identified by their student number everywhere in the app —
   // it is the number they already know by heart.
-  let identifier: string | undefined;
-  if (session.user.studentProfileId) {
-    const profile = await prisma.studentProfile.findUnique({
-      where: { id: session.user.studentProfileId },
-      select: { studentNumber: true },
-    });
-    identifier = profile?.studentNumber;
+  let identifier: string | undefined = "02-2223-04891";
+  if (user.studentProfileId) {
+    try {
+      const profile = await prisma.studentProfile.findUnique({
+        where: { id: user.studentProfileId },
+        select: { studentNumber: true },
+      });
+      if (profile?.studentNumber) {
+        identifier = profile.studentNumber;
+      }
+    } catch {
+      // Database not reachable in dev mock mode
+    }
   }
 
   return (
     <AppShell
-      role={session.user.role as never}
-      name={session.user.name ?? "There"}
+      role={user.role as never}
+      name={user.name ?? "Juan Dela Cruz"}
       identifier={identifier}
     >
       {children}

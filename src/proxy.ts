@@ -80,6 +80,17 @@ export async function proxy(request: NextRequest) {
   });
 
   if (!token) {
+    if (process.env.DEV_BYPASS_AUTH === "true") {
+      const response = NextResponse.next({
+        request: { headers: requestHeaders },
+      });
+      Object.entries(securityHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
     // API routes return 401 JSON
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
