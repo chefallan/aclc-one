@@ -5,7 +5,8 @@ import { CheckCircle2, XCircle } from "lucide-react";
 export type MCOptionState = "default" | "selected" | "correct" | "wrong" | "reveal";
 
 interface MCOptionProps {
-  label: string;
+  label?: string;
+  index?: number;
   text: string;
   state: MCOptionState;
   onClick: () => void;
@@ -21,12 +22,14 @@ const stateStyles: Record<MCOptionState, string> = {
 };
 
 export function MCOption({
-  label,
+  label: propLabel,
+  index = 0,
   text,
   state,
   onClick,
   disabled,
 }: MCOptionProps) {
+  const label = propLabel || String.fromCharCode(65 + index);
   const showIcon = state === "correct" || state === "reveal" || state === "wrong";
 
   return (

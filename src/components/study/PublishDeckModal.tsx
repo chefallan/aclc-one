@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { Deck } from "@/lib/study/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,11 +10,21 @@ import { Share2, Check, Sparkles, GraduationCap, Calendar, BookOpen, AlertCircle
 interface PublishDeckModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
-  content: string;
-  cardsCsv?: string;
+  deckId?: string;
+  deck?: Deck | null;
+  title?: string;
+  content?: string;
+  cardsCsv?: string | string[];
   noteId?: string;
   onPublished?: () => void;
+  initialTitle?: string;
+  initialSummary?: string;
+  initialSubject?: string;
+  initialTags?: string[];
+  initialProgram?: string;
+  initialYearLevel?: number;
+  initialSemester?: number;
+  initialSubjectCode?: string;
 }
 
 const PROGRAMS = ["BSIT", "BSCS", "BSBA", "BSHM", "WADT"];
@@ -71,7 +82,7 @@ export function PublishDeckModal({
           yearLevel,
           semester,
           subjectCode: subjectCode.trim(),
-          cardsCsv,
+          cardsCsv: cardsCsvText,
         }),
       });
 
@@ -93,7 +104,8 @@ export function PublishDeckModal({
     }
   }
 
-  const cardLines = (cardsCsv || "").split("\n").filter((l) => l.trim().length > 0);
+  const cardsCsvText = Array.isArray(cardsCsv) ? cardsCsv.join("\n") : (cardsCsv || "");
+  const cardLines = cardsCsvText.split("\n").filter((l: any) => l.trim().length > 0);
   const cardCount = Math.max(0, cardLines.length > 1 ? cardLines.length - 1 : (cardsCsv ? 1 : 0));
 
   return (

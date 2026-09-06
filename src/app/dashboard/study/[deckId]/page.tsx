@@ -72,6 +72,18 @@ export default function StudyDashboard() {
   const [cards, setCards] = React.useState<Card[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeMode, setActiveMode] = React.useState<StudyMode>(null);
+  const switchMode = (mode: StudyMode) => {
+    setCardIndex(0);
+    setIsFlipped(false);
+    setSelectedMCOption(null);
+    setTfAnswer(null);
+    setIdInput("");
+    setIdSubmitted(false);
+    setEnumInputs({});
+    setEnumSubmitted(false);
+    setActiveMode(mode);
+  };
+
 
   // In-place study state
   const [cardIndex, setCardIndex] = React.useState(0);
@@ -81,6 +93,8 @@ export default function StudyDashboard() {
   const [tfAnswer, setTfAnswer] = React.useState<boolean | null>(null);
   const [idInput, setIdInput] = React.useState("");
   const [idSubmitted, setIdSubmitted] = React.useState(false);
+  const [enumInputs, setEnumInputs] = React.useState<Record<number, string>>({});
+  const [enumSubmitted, setEnumSubmitted] = React.useState(false);
   const [idResult, setIdResult] = React.useState<{ isCorrect: boolean; matchedVariant: string | null } | null>(null);
   const [enumRevealed, setEnumRevealed] = React.useState(false);
   const [score, setScore] = React.useState({ correct: 0, wrong: 0, total: 0 });
@@ -142,6 +156,9 @@ export default function StudyDashboard() {
               id: "cats-1",
               deckId: "pub-deck-cats",
               type: "definition",
+              chapter: "Taxonomy",
+              subject: "Biology",
+              lesson: "Lesson 1",
               front: "What is a Cat (Felis catus)?",
               back: "A small, carnivorous mammal belonging to the family Felidae, known for agility, retractable claws, and keen senses.",
               explanation: "Domestic cats are the only domesticated species in the family Felidae.",
@@ -154,6 +171,9 @@ export default function StudyDashboard() {
               id: "cats-2",
               deckId: "pub-deck-cats",
               type: "true_false",
+              chapter: "Metabolism",
+              subject: "Biology",
+              lesson: "Lesson 2",
               front: "Cats are obligate carnivores, meaning their bodies require nutrients only found in animal meat.",
               back: "True",
               tf_correct: "True",
@@ -167,6 +187,9 @@ export default function StudyDashboard() {
               id: "cats-3",
               deckId: "pub-deck-cats",
               type: "multiple_choice",
+              chapter: "Sensory Organs",
+              subject: "Biology",
+              lesson: "Lesson 3",
               front: "Which sensory organ in cats enables them to detect vibrations and navigate in the dark?",
               back: "Whiskers (Vibrissae)",
               mc_distractor_1: "Retractable Claws",
@@ -182,6 +205,9 @@ export default function StudyDashboard() {
               id: "cats-4",
               deckId: "pub-deck-cats",
               type: "identification",
+              chapter: "Vision",
+              subject: "Biology",
+              lesson: "Lesson 4",
               front: "The reflective layer of tissue behind a cat's retina that enhances night vision.",
               back: "Tapetum Lucidum",
               id_answer: "Tapetum Lucidum",
@@ -196,6 +222,9 @@ export default function StudyDashboard() {
               id: "cats-5",
               deckId: "pub-deck-cats",
               type: "enumeration",
+              chapter: "Communication",
+              subject: "Biology",
+              lesson: "Lesson 5",
               front: "List 4 primary communication methods used by cats.",
               back: "Purring; Meowing; Tail Posture; Scent Marking",
               enum_items: "Purring; Meowing; Tail Posture; Scent Marking",
@@ -209,6 +238,9 @@ export default function StudyDashboard() {
               id: "cats-6",
               deckId: "pub-deck-cats",
               type: "definition",
+              chapter: "Skeletal Structure",
+              subject: "Biology",
+              lesson: "Lesson 6",
               front: "Feline Anatomy & Locomotion",
               back: "Cats have **flexible spines**, **retractable claws**, and **specialized clavicles** that allow them to squeeze through tight spaces and execute the righting reflex.",
               explanation: "Feline anatomy features highly flexible vertebrae and specialized footpads.",
@@ -361,25 +393,22 @@ export default function StudyDashboard() {
       return displayCards;
     }
     if (activeMode === "multiple_choice") {
-      const mc = displayCards.filter((c) => c.type === "multiple_choice" || c.type === "definition");
-      return mc.length > 0 ? mc : displayCards;
+      return displayCards.filter((c) => c.type === "multiple_choice" || Boolean(c.mc_distractor_1 || c.mc_distractor1));
     }
     if (activeMode === "true_false") {
-      const tf = displayCards.filter((c) => c.type === "true_false");
-      return tf.length > 0 ? tf : displayCards;
+      return displayCards.filter((c) => c.type === "true_false" || Boolean(c.tf_correct || c.tf_answer));
     }
     if (activeMode === "enumeration") {
-      const en = displayCards.filter((c) => c.type === "enumeration");
-      return en.length > 0 ? en : displayCards;
+      return displayCards.filter((c) => c.type === "enumeration" || Boolean(c.enum_items));
     }
     if (activeMode === "identification") {
-      const idc = displayCards.filter((c) => c.type === "identification" || c.type === "definition");
-      return idc.length > 0 ? idc : displayCards;
+      return displayCards.filter((c) => c.type === "identification" || Boolean(c.id_answer));
     }
     return displayCards;
   }, [displayCards, activeMode]);
 
-  const currentCard = currentCardList[cardIndex] || currentCardList[0];
+  const safeCardIndex = currentCardList.length > 0 ? Math.min(Math.max(0, cardIndex), currentCardList.length - 1) : 0;
+  const currentCard = currentCardList[safeCardIndex];
 
   // MC options setup
   const currentMCOptions = React.useMemo(() => {
@@ -391,10 +420,12 @@ export default function StudyDashboard() {
     if (selectedMCOption !== null || !currentCard) return;
     setSelectedMCOption(idx);
     const selectedText = currentMCOptions[idx];
-    const isCorrect = selectedText.trim().toLowerCase() === (currentCard.back || "").trim().toLowerCase();
+    const selectedStr = typeof selectedText === "string" ? selectedText : (selectedText as any)?.text || "";
+    const isCorrect = selectedStr.trim().toLowerCase() === (currentCard.back || "").trim().toLowerCase();
 
     const newStates: MCOptionState[] = currentMCOptions.map((opt, i) => {
-      if (opt.trim().toLowerCase() === (currentCard.back || "").trim().toLowerCase()) {
+      const optText = typeof opt === "string" ? opt : (opt as any)?.text || "";
+      if (optText.trim().toLowerCase() === (currentCard.back || "").trim().toLowerCase()) {
         return "correct";
       }
       if (i === idx && !isCorrect) {
@@ -581,57 +612,79 @@ export default function StudyDashboard() {
               </div>
             )}
 
-            {/* Mode Selection Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
-              <ModeCard
-                title="Flashcards"
-                description="Interactive flip deck with neural voice TTS"
-                icon={<Layers className="size-5 text-indigo-400" />}
-                onClick={() => setActiveMode("flashcards")}
-              />
-              <ModeCard
-                title="List View"
-                description="Browse & bulk manage all cards with answer recall"
-                icon={<TableProperties className="size-5 text-purple-400" />}
-                onClick={() => setActiveMode("list_view")}
-              />
-              <ModeCard
-                title="Multiple Choice"
-                description="AI-generated 4-option smart distractor quiz"
-                icon={<ListChecks className="size-5 text-emerald-400" />}
-                onClick={() => setActiveMode("multiple_choice")}
-              />
-              <ModeCard
-                title="True / False"
-                description="Binary factual evaluation and verification"
-                icon={<ToggleLeft className="size-5 text-cyan-400" />}
-                onClick={() => setActiveMode("true_false")}
-              />
-              <ModeCard
-                title="Identification"
-                description="Active recall typing with fuzzy Levenshtein match"
-                icon={<PenLine className="size-5 text-amber-400" />}
-                onClick={() => setActiveMode("identification")}
-              />
-              <ModeCard
-                title="Enumeration"
-                description="Multi-item structured list and sequential recall"
-                icon={<List className="size-5 text-rose-400" />}
-                onClick={() => setActiveMode("enumeration")}
-              />
-              <ModeCard
-                title="Study Notes"
-                description="Rich structured lesson notes with bolded active recall"
-                icon={<BookOpen className="size-5 text-sky-400" />}
-                onClick={() => setActiveMode("notes")}
-              />
-              <ModeCard
-                title="Visual Gallery"
-                description="Document diagrams, figures, and visual OCR gallery"
-                icon={<ImageIcon className="size-5 text-fuchsia-400" />}
-                onClick={() => setActiveMode("gallery")}
-              />
-            </div>
+            {/* Mode Counts Calculation */}
+            {(() => {
+              const mcCount = cards.filter((c) => c.type === "multiple_choice" || Boolean(c.mc_distractor_1 || c.mc_distractor1)).length;
+              const tfCount = cards.filter((c) => c.type === "true_false" || Boolean(c.tf_correct || c.tf_answer)).length;
+              const idCount = cards.filter((c) => c.type === "identification" || Boolean(c.id_answer)).length;
+              const enumCount = cards.filter((c) => c.type === "enumeration" || Boolean(c.enum_items)).length;
+              const notesCount = cards.filter((c) => c.type === "keyword" || c.type === "definition" || Boolean(c.back || c.explanation)).length;
+
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+                  <ModeCard
+                    title="Flashcards"
+                    description="Interactive flip deck with neural voice TTS"
+                    count={`${cards.length} Cards`}
+                    icon={<Layers className="size-5 text-indigo-400" />}
+                    onClick={() => switchMode("flashcards")}
+                  />
+                  <ModeCard
+                    title="List View"
+                    description="Browse & bulk manage all cards with answer recall"
+                    count={`${cards.length} Cards`}
+                    icon={<TableProperties className="size-5 text-purple-400" />}
+                    onClick={() => switchMode("list_view")}
+                  />
+                  <ModeCard
+                    title="Multiple Choice"
+                    description="AI-generated 4-option smart distractor quiz"
+                    count={`${mcCount} Questions`}
+                    disabled={mcCount === 0}
+                    icon={<ListChecks className="size-5 text-emerald-400" />}
+                    onClick={mcCount > 0 ? () => switchMode("multiple_choice") : undefined}
+                  />
+                  <ModeCard
+                    title="True / False"
+                    description="Binary factual evaluation and verification"
+                    count={`${tfCount} Statements`}
+                    disabled={tfCount === 0}
+                    icon={<ToggleLeft className="size-5 text-cyan-400" />}
+                    onClick={tfCount > 0 ? () => switchMode("true_false") : undefined}
+                  />
+                  <ModeCard
+                    title="Identification"
+                    description="Active recall typing with fuzzy Levenshtein match"
+                    count={`${idCount} Terms`}
+                    disabled={idCount === 0}
+                    icon={<PenLine className="size-5 text-amber-400" />}
+                    onClick={idCount > 0 ? () => switchMode("identification") : undefined}
+                  />
+                  <ModeCard
+                    title="Enumeration"
+                    description="Multi-item structured list and sequential recall"
+                    count={`${enumCount} Topics`}
+                    disabled={enumCount === 0}
+                    icon={<List className="size-5 text-rose-400" />}
+                    onClick={enumCount > 0 ? () => switchMode("enumeration") : undefined}
+                  />
+                  <ModeCard
+                    title="Study Notes"
+                    description="Rich structured lesson notes with bolded active recall"
+                    count={`${notesCount} Notes`}
+                    icon={<BookOpen className="size-5 text-sky-400" />}
+                    onClick={() => switchMode("notes")}
+                  />
+                  <ModeCard
+                    title="Visual Gallery"
+                    description="Document diagrams, figures, and visual OCR gallery"
+                    count="Gallery"
+                    icon={<ImageIcon className="size-5 text-fuchsia-400" />}
+                    onClick={() => switchMode("gallery")}
+                  />
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -643,7 +696,7 @@ export default function StudyDashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setActiveMode("list_view")}
+                  onClick={() => switchMode("list_view")}
                   className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-medium flex items-center gap-1.5 transition-all"
                 >
                   <TableProperties size={14} /> Switch to List View
@@ -666,8 +719,9 @@ export default function StudyDashboard() {
             </div>
 
             <FlashcardDeck
+              card={currentCard}
               cards={currentCardList}
-              currentIndex={cardIndex}
+              currentIndex={safeCardIndex}
               isFlipped={isFlipped}
               onFlip={() => setIsFlipped(!isFlipped)}
               onNext={nextQuestion}
@@ -683,7 +737,7 @@ export default function StudyDashboard() {
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <button
-                onClick={() => setActiveMode("flashcards")}
+                onClick={() => switchMode("flashcards")}
                 className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 transition-all"
               >
                 <Layers size={14} /> Switch to Flip Cards
@@ -702,11 +756,11 @@ export default function StudyDashboard() {
 
             <FlashcardListView
               cards={displayCards}
-              onCardDelete={(id) => {
+              onCardDeleted={(id: string) => {
                 setCards((prev) => prev.filter((c) => c.id !== id));
                 setDisplayCards((prev) => prev.filter((c) => c.id !== id));
               }}
-              onBulkDelete={(ids) => {
+              onBulkDelete={(ids: string[]) => {
                 const idSet = new Set(ids);
                 setCards((prev) => prev.filter((c) => !idSet.has(c.id)));
                 setDisplayCards((prev) => prev.filter((c) => !idSet.has(c.id)));
@@ -729,11 +783,12 @@ export default function StudyDashboard() {
               <h2 className="text-lg font-semibold text-slate-100">{currentCard.front}</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                {currentMCOptions.map((option, idx) => (
+                {currentMCOptions.map((option: any, idx: number) => (
                   <MCOption
                     key={idx}
                     index={idx}
-                    text={option}
+                    label={typeof option === "object" && option?.label ? option.label : String.fromCharCode(65 + idx)}
+                    text={typeof option === "string" ? option : (option?.text || String(option))}
                     state={mcOptionStates[idx] || "default"}
                     disabled={selectedMCOption !== null}
                     onClick={() => handleMCSelect(idx)}
@@ -1009,7 +1064,7 @@ export default function StudyDashboard() {
         {/* ========================================================================= */}
         {activeMode === "gallery" && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <DeckImageGallery deckTitle={deck?.title} />
+            <DeckImageGallery images={[]} deckTitle={deck?.title} />
           </div>
         )}
       </div>

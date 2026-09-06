@@ -20,9 +20,10 @@ const SUPPORTED_EXTENSIONS = [
 
 interface LessonNotesDropZoneProps {
   value: string;
-  onChange: (text: string) => void;
+  onChange: (val: string) => void;
   onTitleChange?: (title: string) => void;
   onImagesExtracted?: (images: any[]) => void;
+  label?: string;
   placeholder?: string;
   rows?: number;
   className?: string;
@@ -56,7 +57,7 @@ export function LessonNotesDropZone({
     }
 
     setFileName(file.name);
-    const autoTitle = extractSmartTitle(text || "", file.name);
+    const autoTitle = extractSmartTitle("", file.name);
     if (onTitleChange) {
       onTitleChange(autoTitle);
     }

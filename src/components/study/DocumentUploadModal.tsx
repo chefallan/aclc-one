@@ -12,10 +12,11 @@ import type { Deck, Card } from '@/lib/study/types';
 interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDeckCreated: (deck: Deck, cards: Card[]) => void;
+  onDeckCreated?: (deck: Deck, cards?: Card[]) => void;
+  onTranscriptionComplete?: (text: string, images: any[]) => void;
 }
 
-export function DocumentUploadModal({ isOpen, onClose, onDeckCreated }: DocumentUploadModalProps) {
+export function DocumentUploadModal({ isOpen, onClose, onDeckCreated, onTranscriptionComplete }: DocumentUploadModalProps) {
   const [tab, setTab] = useState<'upload' | 'ai_prompt' | 'notes_prompt'>('upload');
   const [deckTitle, setDeckTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -101,7 +102,7 @@ export function DocumentUploadModal({ isOpen, onClose, onDeckCreated }: Document
         images: extractedImages,
       };
 
-      onDeckCreated(deck, data.cards);
+      if (onDeckCreated) onDeckCreated(deck, data.cards);
       onClose();
     } catch (err: any) {
       setError(err?.message || 'AI Generation failed. Check API key or paste generated CSV.');
@@ -121,7 +122,7 @@ export function DocumentUploadModal({ isOpen, onClose, onDeckCreated }: Document
       if (extractedImages.length > 0) {
         deck.images = extractedImages;
       }
-      onDeckCreated(deck, cards);
+      if (onDeckCreated) onDeckCreated(deck, cards);
       onClose();
     } catch (err: any) {
       setError('Failed to parse CSV: ' + err.message);

@@ -22,7 +22,8 @@ export function DeckImageGallery({ images, deckTitle }: DeckImageGalleryProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  const filtered = images.filter(
+  const safeImages = images || [];
+  const filtered = safeImages.filter(
     (img) =>
       !search ||
       img.title.toLowerCase().includes(search.toLowerCase()) ||

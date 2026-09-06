@@ -31,7 +31,7 @@ import { FlashcardListView } from "@/components/study/FlashcardListView";
 import { DeckImageGallery } from "@/components/study/DeckImageGallery";
 import { PublishDeckModal } from "@/components/study/PublishDeckModal";
 import { LessonNotesDropZone } from "@/components/study/LessonNotesDropZone";
-import { MathFormattedText } from "@/components/study/MathFormattedText";
+import MathFormattedText from "@/components/study/MathFormattedText";
 import { parseCSVFile } from "@/lib/study/csvParser";
 import { buildMCQuestion } from "@/lib/study/distractorEngine";
 import { checkIdentificationAnswer } from "@/lib/study/answerChecker";
@@ -153,7 +153,8 @@ export default function FlashcardsPage() {
     e.preventDefault();
     if (!pastedCSV.trim()) return;
     try {
-      const parsedCards = parseCSVFile(pastedCSV);
+      const parsedRes = parseCSVFile(pastedCSV, "temp-deck");
+      const parsedCards = Array.isArray(parsedRes) ? parsedRes : (parsedRes.cards || []);
       if (parsedCards.length > 0) {
         setCards(parsedCards);
         setDisplayCards(parsedCards);

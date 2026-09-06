@@ -11,9 +11,12 @@ import type { Card } from '@/lib/study/types';
 interface FlashcardListViewProps {
   cards: Card[];
   onCardDeleted?: (cardId: string) => void;
+  onCardDelete?: (cardId: string) => void;
+  onBulkDelete?: (cardIds: string[]) => void;
+  onCardUpdated?: (card: Card) => void;
 }
 
-export function FlashcardListView({ cards: initialCards, onCardDeleted }: FlashcardListViewProps) {
+export function FlashcardListView({ cards: initialCards, onCardDeleted, onCardDelete, onBulkDelete, onCardUpdated }: FlashcardListViewProps) {
   const [cards, setCards] = useState<Card[]>(initialCards);
   const [search, setSearch] = useState('');
   const [hideAnswers, setHideAnswers] = useState(false);

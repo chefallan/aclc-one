@@ -1,24 +1,33 @@
 "use client";
 
 import * as React from "react";
-import { Star, RotateCcw, Mic, MicOff, AlertCircle } from "lucide-react";
+import { Star, RotateCcw, Mic, MicOff, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Card } from "@/lib/study/types";
 import { StatBadge } from "./StatBadge";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-
-interface FlashcardDeckProps {
-  card: Card;
-  isFlipped: boolean;
-  onFlip: () => void;
-}
-
 import MathFormattedText from "@/components/study/MathFormattedText";
 
+interface FlashcardDeckProps {
+  card?: Card;
+  cards?: Card[];
+  currentIndex?: number;
+  isFlipped?: boolean;
+  onFlip?: () => void;
+  onNext?: () => void;
+  onPrev?: () => void;
+}
+
 export function FlashcardDeck({
-  card,
-  isFlipped,
+  card: propCard,
+  cards,
+  currentIndex = 0,
+  isFlipped = false,
   onFlip,
+  onNext,
+  onPrev,
 }: FlashcardDeckProps) {
+  const card = propCard || (cards && cards.length > 0 ? cards[Math.min(currentIndex, cards.length - 1)] : undefined);
+
   const {
     isListening,
     transcript,
@@ -49,13 +58,13 @@ export function FlashcardDeck({
     setUserAnswer("");
     setTranscript("");
     setIsCorrectState(null);
-  }, [card.id, setTranscript]);
+  }, [card?.id, setTranscript]);
 
   React.useEffect(() => {
-    if (!userAnswer || isCorrectState === true) return;
+    if (!userAnswer || isCorrectState === true || !card) return;
     const timeout = setTimeout(() => {
       const u = userAnswer.trim().toLowerCase();
-      const target = (card.back || card.id_answer || card.mc_correct || card.tf_answer || "").trim().toLowerCase();
+      const target = (card.back || card.id_answer || "").trim().toLowerCase();
       if (u.length > 2 && (target.includes(u) || u.includes(target))) {
         setIsCorrectState(true);
       }
@@ -63,12 +72,18 @@ export function FlashcardDeck({
     return () => clearTimeout(timeout);
   }, [userAnswer, isCorrectState, card]);
 
-  // Determine back answer text
-  const isTrueFalse = card.type === "true_false" || typeof card.tf_answer === "boolean" || Boolean(card.tf_answer);
-  const tfVal = String(card.tf_answer).toLowerCase() === "true";
+  if (!card) {
+    return (
+      <div className="glass-panel p-8 text-center rounded-2xl border border-white/10 text-slate-400">
+        <p>No cards available for this mode.</p>
+      </div>
+    );
+  }
+
+  const badgeCategory = card.chapter || card.subject || (card.tags && card.tags[0]) || "Flashcard";
 
   return (
-    <div className="w-full" style={{ perspective: "1000px" }}>
+    <div className="w-full space-y-4" style={{ perspective: "1000px" }}>
       <div
         className="w-full transition-transform duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] grid cursor-pointer"
         style={{
@@ -76,7 +91,7 @@ export function FlashcardDeck({
           transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
         }}
       >
-        {/* Front face */}
+        {/* Front Face: Question / Term */}
         <div
           className={`col-start-1 row-start-1 min-h-[25rem] md:min-h-[29rem] h-full glass-panel rounded-2xl border ${
             isCorrectState === true
@@ -91,7 +106,7 @@ export function FlashcardDeck({
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase tracking-wider font-bold text-[#5e6880]">
-                {card.chapter || "Chapter 1"}
+                {badgeCategory}
               </span>
               <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white/10 text-zinc-300">
                 {card.type}
@@ -113,12 +128,12 @@ export function FlashcardDeck({
           </div>
 
           <div className="flex-1 overflow-auto py-6 flex items-center justify-center">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-center text-[#eef0f6] break-words leading-relaxed">
+            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-center text-[#eef0f6] break-words leading-relaxed px-4">
               <MathFormattedText text={card.front} />
             </div>
           </div>
 
-          {/* Interactive Voice Mic & Typing Area */}
+          {/* Voice Mic & Self-Recall Area */}
           <div className="mt-2 w-full flex flex-col items-center gap-3 relative">
             <input
               type="text"
@@ -132,7 +147,7 @@ export function FlashcardDeck({
               }}
             />
 
-            {/* Voice Dictation Mic Button */}
+            {/* Voice Dictation Mic */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -170,7 +185,7 @@ export function FlashcardDeck({
           </div>
         </div>
 
-        {/* Back face */}
+        {/* Back Face: Answer / Definition */}
         <div
           className="col-start-1 row-start-1 min-h-[25rem] md:min-h-[29rem] h-full glass-panel rounded-2xl border border-[rgba(255,255,255,0.07)] shadow-2xl p-6 md:p-8 flex flex-col justify-between bg-[#12151c]/90"
           style={{
@@ -181,47 +196,18 @@ export function FlashcardDeck({
         >
           <div className="flex justify-between items-start">
             <span className="text-xs uppercase tracking-wider font-bold text-[#5e6880]">
-              {card.chapter || "Chapter 1"}
+              {badgeCategory}
             </span>
-            <StatBadge label="Answer" value="" color="know" />
+            <StatBadge label="Definition" value="" color="know" />
           </div>
 
-          <div className="flex-1 overflow-auto py-6 flex items-center justify-center flex-col gap-3">
-            {isTrueFalse ? (
-              <div className="flex flex-col items-center gap-3">
-                <span
-                  className={`px-5 py-2 rounded-xl text-lg font-extrabold uppercase tracking-wider ${
-                    tfVal
-                      ? "bg-[#34d399]/20 text-[#34d399] border border-[#34d399]/40"
-                      : "bg-[#f87171]/20 text-[#f87171] border border-[#f87171]/40"
-                  }`}
-                >
-                  {tfVal ? "TRUE" : "FALSE"}
-                </span>
-                {card.explanation && (
-                  <p className="text-sm text-[#eef0f6] text-center max-w-md bg-[#1a1e28] p-4 rounded-xl border border-[rgba(255,255,255,0.05)]">
-                    <MathFormattedText text={card.explanation} />
-                  </p>
-                )}
-              </div>
-            ) : card.enum_items ? (
-              <div className="text-left w-full max-w-md bg-[#1a1e28] p-4 rounded-xl border border-[rgba(255,255,255,0.05)] space-y-2">
-                <p className="text-xs uppercase text-zinc-400 font-semibold mb-1">Items:</p>
-                {card.enum_items.split(";").map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-sm text-[#eef0f6]">
-                    <span className="text-[#34d399] font-bold">•</span>
-                    <MathFormattedText text={item.trim()} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-center text-[#eef0f6] break-words leading-relaxed">
-                <MathFormattedText text={card.back || card.id_answer || card.mc_correct || ""} />
-              </div>
-            )}
+          <div className="flex-1 overflow-auto py-6 flex items-center justify-center flex-col gap-4">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-center text-[#eef0f6] break-words leading-relaxed px-4">
+              <MathFormattedText text={card.back || card.id_answer || ""} />
+            </div>
 
-            {!isTrueFalse && card.explanation && (
-              <p className="text-xs text-[#9ba3b8] italic text-center max-w-md bg-[#1a1e28] p-3 rounded-xl border border-[rgba(255,255,255,0.05)]">
+            {card.explanation && (
+              <p className="text-xs sm:text-sm text-[#9ba3b8] italic text-center max-w-md bg-[#1a1e28] p-3 rounded-xl border border-[rgba(255,255,255,0.05)]">
                 💡 <MathFormattedText text={card.explanation} />
               </p>
             )}
@@ -232,6 +218,28 @@ export function FlashcardDeck({
           </p>
         </div>
       </div>
+
+      {/* Prev / Next Navigation Controls */}
+      {(onPrev || onNext) && (
+        <div className="flex items-center justify-between pt-2">
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={!onPrev || currentIndex <= 0}
+            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-sm font-medium flex items-center gap-2 disabled:opacity-30 disabled:pointer-events-none transition-all"
+          >
+            <ChevronLeft size={16} /> Previous
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!onNext || (cards && currentIndex >= cards.length - 1)}
+            className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium flex items-center gap-2 disabled:opacity-30 disabled:pointer-events-none transition-all shadow-md"
+          >
+            Next <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

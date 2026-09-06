@@ -104,7 +104,7 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
   const [topHovered, setTopHovered] = React.useState(false);
   const [bottomHovered, setBottomHovered] = React.useState(false);
 
-  const isStudyMode = pathname.startsWith("/dashboard/study");
+  const isStudyMode = pathname?.startsWith("/dashboard/study") ?? false;
   const items = NAV[role] ?? NAV.STUDENT;
   const isStudent = role === "STUDENT";
   const hasSidebar = !isStudent;
@@ -118,7 +118,7 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
     <div className={cn("flex min-h-dvh flex-col", hasSidebar && !isStudyMode && "md:pl-60")}>
       {hasSidebar && !isStudyMode && <Sidebar items={items} isActive={isActive} />}
 
-      {/* Top edge hover sensor for Study Focus Mode */}
+      {/* Top Edge Hover Sensor for Study Focus Mode */}
       {isStudyMode && (
         <div
           onMouseEnter={() => setTopHovered(true)}
@@ -127,18 +127,19 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
         />
       )}
 
-      {/* Top Header with smooth slide-in on hover in Study Mode */}
+      {/* Top Header - Slides down on hover in Study Mode */}
       <header
         data-print="hide"
         onMouseEnter={() => isStudyMode && setTopHovered(true)}
         onMouseLeave={() => isStudyMode && setTopHovered(false)}
         className={cn(
-          "sticky top-0 z-40 border-b border-hairline bg-surface/95 backdrop-blur transition-all duration-300 ease-out",
-          hasSidebar && "md:hidden",
+          "z-40 border-b border-hairline bg-surface/95 backdrop-blur transition-transform duration-300 ease-in-out",
+          hasSidebar && !isStudyMode && "md:hidden",
+          !isStudyMode && "sticky top-0",
           isStudyMode && (
             topHovered
-              ? "fixed inset-x-0 translate-y-0 opacity-100 shadow-xl bg-surface/95"
-              : "fixed inset-x-0 -translate-y-full opacity-0 pointer-events-none"
+              ? "fixed inset-x-0 top-0 translate-y-0 shadow-2xl pointer-events-auto visible"
+              : "fixed inset-x-0 top-0 -translate-y-full pointer-events-none invisible"
           )
         )}
       >
@@ -231,6 +232,7 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
         )}
       </header>
 
+      {/* Main Content Area */}
       <main
         id="main"
         className={cn(
@@ -247,7 +249,7 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
         {children}
       </main>
 
-      {/* Bottom edge hover sensor for Study Focus Mode */}
+      {/* Bottom Edge Hover Sensor for Study Focus Mode */}
       {isStudent && isStudyMode && (
         <div
           onMouseEnter={() => setBottomHovered(true)}
@@ -256,16 +258,18 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
         />
       )}
 
+      {/* Student Bottom Navigation Tab Bar */}
       {isStudent && (
         <div
           onMouseEnter={() => isStudyMode && setBottomHovered(true)}
           onMouseLeave={() => isStudyMode && setBottomHovered(false)}
           className={cn(
-            "transition-all duration-300 ease-out z-40",
+            "transition-transform duration-300 ease-in-out z-40",
+            !isStudyMode && "fixed inset-x-0 bottom-0 pointer-events-auto",
             isStudyMode && (
               bottomHovered
-                ? "translate-y-0 opacity-100"
-                : "translate-y-full opacity-0 pointer-events-none"
+                ? "fixed inset-x-0 bottom-0 translate-y-0 shadow-2xl pointer-events-auto visible"
+                : "fixed inset-x-0 bottom-0 translate-y-full pointer-events-none invisible"
             )
           )}
         >
@@ -346,7 +350,7 @@ function StudentTabBar({
     <nav
       aria-label="Main"
       data-print="hide"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface/95 backdrop-blur"
+      className="safe-bottom w-full border-t border-hairline bg-surface/95 backdrop-blur"
     >
       <ul className="mx-auto flex max-w-lg items-end justify-around px-2 pt-1.5">
         {items.map((item) => {

@@ -19,26 +19,39 @@ export interface Card {
   deckId: string;
   front: string;
   back: string;
-  chapter: string;
-  subject: string;
-  lesson: string;
   type: CardType;
-  mastery: number;
-  status: CardStatus;
-  know: boolean | null;
-  correctCount: number;
-  wrongCount: number;
-  lastReviewed: string | null;
-  nextReview: string | null;
+  chapter?: string;
+  subject?: string;
+  lesson?: string;
+  mastery?: number;
+  status?: CardStatus;
+  know?: boolean | null;
+  correctCount?: number;
+  wrongCount?: number;
+  lastReviewed?: string | null;
+  nextReview?: string | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+  displayOrder?: number;
+  tags?: string[];
+  deck_title?: string;
+  card_type?: string;
   mc_correct?: string;
   mc_distractor1?: string;
   mc_distractor2?: string;
   mc_distractor3?: string;
+  mc_distractor_1?: string;
+  mc_distractor_2?: string;
+  mc_distractor_3?: string;
   tf_answer?: string;
+  tf_correct?: string;
   explanation?: string | null;
   enum_items?: string;
   id_answer?: string;
   id_variants?: string;
+  id_acceptable_variants?: string;
+  notes_content?: string;
+  image_keywords?: string;
 }
 
 export interface MultipleChoiceItem {
@@ -83,13 +96,29 @@ export type QuizItem =
   | EnumerationItem
   | IdentificationItem;
 
+export interface DeckImage {
+  id?: string;
+  title: string;
+  caption?: string;
+  dataUrl: string;
+  tags?: string[];
+}
+
 export interface Deck {
   id: string;
   title: string;
   subject: string;
-  uploadedAt: string;
-  cards: Card[];
-  quizItems: QuizItem[];
+  uploadedAt?: string | Date;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+  visibility?: string;
+  isPublished?: boolean;
+  cards?: Card[];
+  quizItems?: QuizItem[];
+  userId?: string;
+  description?: string;
+  totalCards?: number;
+  images?: DeckImage[];
 }
 
 export interface MCOption {
