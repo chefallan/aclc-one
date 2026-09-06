@@ -30,6 +30,7 @@ import { DocumentUploadModal } from "@/components/study/DocumentUploadModal";
 import { FlashcardListView } from "@/components/study/FlashcardListView";
 import { DeckImageGallery } from "@/components/study/DeckImageGallery";
 import { PublishDeckModal } from "@/components/study/PublishDeckModal";
+import { LessonNotesDropZone } from "@/components/study/LessonNotesDropZone";
 import { MathFormattedText } from "@/components/study/MathFormattedText";
 import { parseCSVFile } from "@/lib/study/csvParser";
 import { buildMCQuestion } from "@/lib/study/distractorEngine";
@@ -286,12 +287,15 @@ export default function FlashcardsPage() {
               <X className="size-4" />
             </Button>
           </div>
-          <textarea
+          <LessonNotesDropZone
             value={pastedCSV}
-            onChange={(e) => setPastedCSV(e.target.value)}
-            placeholder="deck_title,card_type,front,back,explanation,tags,mc_distractor_1,mc_distractor_2,mc_distractor_3,tf_correct,id_answer,id_acceptable_variants,enum_items,notes_content,image_keywords..."
+            onChange={setPastedCSV}
+            onTitleChange={(title) => {
+              if (deck && !deck.title) setDeck({ ...deck, title });
+            }}
+            label="15-Column Claude CSV or Document"
+            placeholder="Paste 15-column CSV rows, or drop a document/spreadsheet to transcribe automatically..."
             rows={4}
-            className="w-full p-3 rounded-lg bg-black/40 border border-white/10 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
           />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => setCsvImportOpen(false)}>

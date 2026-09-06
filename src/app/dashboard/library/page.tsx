@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge, StatusPill } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { parseCSVFile } from "@/lib/study/csvParser";
+import { LessonNotesDropZone } from "@/components/study/LessonNotesDropZone";
 
 interface LibraryItem {
   id: string;
@@ -433,16 +434,16 @@ export default function LibraryPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-content-muted">Lesson Notes or CSV Content</label>
-              <textarea
-                rows={8}
-                value={notesInput}
-                onChange={(e) => setNotesInput(e.target.value)}
-                placeholder="Paste lesson text, bullet points, or CSV formatted flashcards..."
-                className="w-full rounded-md border border-hairline-strong bg-surface-sunk p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 font-mono text-content"
-              />
-            </div>
+            <LessonNotesDropZone
+              value={notesInput}
+              onChange={setNotesInput}
+              onTitleChange={(title) => {
+                if (!deckTitle) setDeckTitle(title);
+              }}
+              label="Lesson Notes or CSV Content"
+              placeholder="Paste lesson notes, definitions, or drop a PDF / Word / PPTX document to transcribe automatically..."
+              rows={7}
+            />
 
             <div className="flex items-center justify-between pt-2">
               <Button variant="outline" onClick={() => setActiveTab("library")}>

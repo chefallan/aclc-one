@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import type { Deck, Card as FlashcardItem } from "@/lib/study/types";
+import { LessonNotesDropZone } from "@/components/study/LessonNotesDropZone";
 
 interface AiFlashcardModalProps {
   isOpen: boolean;
