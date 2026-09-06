@@ -38,19 +38,6 @@ type NavItem = {
   primary?: boolean;
 };
 
-/**
- * Navigation is per role rather than one menu with things greyed out — a
- * supervisor should never see the shape of the admin app.
- *
- * The student list is exactly five, and that is a rule rather than a
- * coincidence. Concept sheet 00: "Five tabs, no more. Anything Phase 2+ lives
- * behind Campus so the app can grow without a redesign." Grades, clearance,
- * tuition and room booking are all reachable, all through Campus → services,
- * which is where sheet 09 puts them.
- *
- * Nothing here links to a screen that does not exist. A tab that leads nowhere
- * is worse than a missing tab.
- */
 const NAV: Record<Role, NavItem[]> = {
   STUDENT: [
     { href: "/dashboard", label: "Home", icon: House },
@@ -114,86 +101,107 @@ export interface AppShellProps {
 export function AppShell({ role, name, identifier, children }: AppShellProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [topHovered, setTopHovered] = React.useState(false);
+  const [bottomHovered, setBottomHovered] = React.useState(false);
+
+  const isStudyMode = pathname.startsWith("/dashboard/study");
   const items = NAV[role] ?? NAV.STUDENT;
   const isStudent = role === "STUDENT";
+  const hasSidebar = !isStudent;
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === href : pathname.startsWith(href);
 
-  /** Staff carry nine or more destinations; students have a tab bar already. */
-  const hasSidebar = !isStudent;
-
-  /* Sheet 02.3 opens with the student greeted by name, their initials at the
-     left and the bell at the right. Staff get the mark and their account
-     instead — a registrar at a window does not need to be told good morning by
-     a piece of software. */
   const onHome = isStudent && pathname === "/dashboard";
 
   return (
-    <div className={cn("flex min-h-dvh flex-col", hasSidebar && "md:pl-60")}>
-      {hasSidebar && <Sidebar items={items} isActive={isActive} />}
+    <div className={cn("flex min-h-dvh flex-col", hasSidebar && !isStudyMode && "md:pl-60")}>
+      {hasSidebar && !isStudyMode && <Sidebar items={items} isActive={isActive} />}
 
+      {/* Top edge hover sensor for Study Focus Mode */}
+      {isStudyMode && (
+        <div
+          onMouseEnter={() => setTopHovered(true)}
+          className="fixed top-0 inset-x-0 h-4 z-50 pointer-events-auto"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Top Header with smooth slide-in on hover in Study Mode */}
       <header
         data-print="hide"
-        className="sticky top-0 z-40 border-b border-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
+        onMouseEnter={() => isStudyMode && setTopHovered(true)}
+        onMouseLeave={() => isStudyMode && setTopHovered(false)}
+        className={cn(
+          "sticky top-0 z-40 border-b border-hairline bg-surface/95 backdrop-blur transition-all duration-300 ease-out",
+          hasSidebar && "md:hidden",
+          isStudyMode && (
+            topHovered
+              ? "fixed inset-x-0 translate-y-0 opacity-100 shadow-xl bg-surface/95"
+              : "fixed inset-x-0 -translate-y-full opacity-0 pointer-events-none"
+          )
+        )}
       >
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-gutter">
           {onHome ? (
-            <Link href="/dashboard/settings" className="flex min-w-0 items-center gap-2.5">
-              <AvatarBlock name={name} tone="brand" size="sm" />
-              <span className="min-w-0">
-                <span className="block text-[0.6875rem] leading-tight text-content-faint">
-                  {greeting()},
-                </span>
-                <span className="block truncate text-[0.9375rem] font-semibold leading-tight">
-                  {name.split(" ")[0]}
-                </span>
-              </span>
-            </Link>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <AvatarBlock name={name} size="sm" />
+              <div className="min-w-0">
+                <p className="text-[0.7rem] leading-none text-content-faint">
+                  {greeting()}
+                </p>
+                <p className="truncate text-sm font-semibold tracking-tight text-content">
+                  {name}
+                </p>
+              </div>
+            </div>
           ) : (
-            <Link
-              href="/dashboard"
-              className={cn("flex items-center gap-2.5", hasSidebar && "md:hidden")}
-            >
+            <Link href="/dashboard" className="flex items-center gap-2.5">
               <Mark />
-              <span className="text-[0.95rem] font-semibold tracking-tight">ACLC One</span>
+              <span className="text-[0.95rem] font-semibold tracking-tight">
+                ACLC One
+              </span>
             </Link>
           )}
 
           <div className="ml-auto flex items-center gap-1">
             <NotificationBell />
-            {!onHome && (
+
+            {hasSidebar ? (
+              <button
+                type="button"
+                onClick={() => setMenuOpen(!menuOpen)}
+                aria-expanded={menuOpen}
+                aria-label="Navigation menu"
+                className="inline-flex size-11 items-center justify-center rounded-field text-content-muted transition-colors hover:bg-surface-sunk hover:text-content md:hidden"
+              >
+                {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+              </button>
+            ) : (
               <Link
                 href="/dashboard/settings"
                 className="mx-1 flex items-center gap-2 rounded-field px-1.5 py-1 transition-colors hover:bg-surface-sunk"
               >
                 <span className="hidden text-right sm:block">
-                  <span className="block text-sm font-medium leading-tight">{name}</span>
+                  <span className="block text-sm font-medium leading-tight">
+                    {name}
+                  </span>
                   <span className="block text-[0.7rem] leading-tight text-content-faint">
-                    {identifier ? <span className="data">{identifier}</span> : ROLE_LABEL[role]}
+                    <span className="data">{identifier ?? ROLE_LABEL[role]}</span>
                   </span>
                 </span>
                 <CircleUser className="size-5 text-content-muted sm:hidden" />
                 <span className="sr-only">Your account</span>
               </Link>
             )}
-            {!isStudent && (
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                aria-expanded={menuOpen}
-                aria-controls="mobile-nav"
-                className="inline-flex size-11 items-center justify-center rounded-field text-content-muted hover:bg-surface-sunk md:hidden"
-              >
-                {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-                <span className="sr-only">{menuOpen ? "Close menu" : "Open menu"}</span>
-              </button>
-            )}
           </div>
         </div>
 
-        {!isStudent && menuOpen && (
-          <nav id="mobile-nav" className="border-t border-hairline px-2 py-2 md:hidden">
+        {hasSidebar && menuOpen && (
+          <nav
+            aria-label="Mobile"
+            className="border-t border-hairline bg-surface px-gutter py-2 md:hidden"
+          >
             {items.map((item) => (
               <Link
                 key={item.href}
@@ -268,17 +276,6 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
   );
 }
 
-/**
- * The staff sidebar.
- *
- * Nine destinations do not fit in a row, and the header had started to squeeze
- * them until the labels were the only thing left. Stacked, each one gets an
- * icon and full label, and the list has somewhere to grow.
- *
- * Only from md up. Below that the header keeps its row and its hamburger, both
- * of which already worked — there is no reason to make a narrow screen carry a
- * 240px column.
- */
 function Sidebar({
   items,
   isActive,
@@ -299,8 +296,6 @@ function Sidebar({
         <span className="text-[0.95rem] font-semibold tracking-tight">ACLC One</span>
       </Link>
 
-      {/* Scrolls on its own: a short laptop screen must not cut the list off
-          with no way to reach the rest. */}
       <nav aria-label="Main" className="flex-1 overflow-y-auto p-2">
         <ul className="space-y-0.5">
           {items.map((item) => {
@@ -357,9 +352,6 @@ function StudentTabBar({
         {items.map((item) => {
           const active = isActive(item.href);
 
-          // The raised centre action. Check in is the one thing a student opens
-          // the app to do, so it is reachable from every screen without aiming,
-          // and it is gold because it is the thing that needs you.
           if (item.primary) {
             return (
               <li key={item.href} className="-mt-6">
@@ -402,11 +394,6 @@ function StudentTabBar({
   );
 }
 
-/**
- * The mark. A sea-blue slab with the campus initial, and a gold rule along the
- * bottom edge — the only place in the app where the institution and the accent
- * touch.
- */
 export function Mark({ className }: { className?: string }) {
   return (
     <span
