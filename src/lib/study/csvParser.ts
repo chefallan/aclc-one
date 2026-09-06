@@ -1,5 +1,6 @@
 import type { Deck, Card, QuizItem, CardType } from './types';
 import { auditAndFixCSV } from './csvFixer';
+import { extractSmartTitle } from './titleExtractor';
 
 interface CSVRow {
   front: string;
@@ -292,9 +293,10 @@ export function parseCSVFile(
   const cards = buildCards(rows, deckId, primarySubject);
   const quizItems = generateQuizItems(rows, primarySubject);
 
+  const inferredTitle = title && title !== 'Untitled Deck' && title !== 'Generated Deck' ? title : extractSmartTitle(text, primarySubject);
   const deck: Deck = {
     id: deckId,
-    title,
+    title: inferredTitle,
     subject: primarySubject,
     uploadedAt,
     cards,
