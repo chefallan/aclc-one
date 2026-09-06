@@ -77,17 +77,41 @@ export const authOptions: NextAuthOptions = {
           console.warn("Database lookup failed, falling back to dev mock user:", dbErr);
         }
 
-        // Dev Mock User Fallback
+        // Dev Mock User Fallback for local testing
         if (process.env.NODE_ENV !== "production" || process.env.DEV_BYPASS_AUTH === "true") {
+          const lowerEmail = email.toLowerCase();
+          const isStudent = lowerEmail.includes("student") || lowerEmail.includes("delacruz") || lowerEmail.includes("juan");
+          const isFaculty = lowerEmail.includes("teacher") || lowerEmail.includes("faculty");
+          const isSupervisor = lowerEmail.includes("supervisor");
+          const role = isStudent
+            ? "STUDENT"
+            : isFaculty
+            ? "FACULTY"
+            : isSupervisor
+            ? "SUPERVISOR"
+            : "ADMIN";
+
           return {
-            id: "dev-mock-student-id",
-            email: email.toLowerCase(),
-            name: "Juan Dela Cruz (Student)",
-            firstName: "Juan",
-            lastName: "Dela Cruz",
-            role: email.includes("admin") ? "ADMIN" : "STUDENT",
-            studentProfileId: "dev-mock-profile",
-            supervisorRecordId: null,
+            id: isStudent
+              ? "dev-mock-student-id"
+              : isFaculty
+              ? "dev-mock-teacher-id"
+              : isSupervisor
+              ? "dev-mock-supervisor-id"
+              : "dev-mock-admin-id",
+            email: lowerEmail,
+            name: isStudent
+              ? "Juan Dela Cruz"
+              : isFaculty
+              ? "Ana Cruz"
+              : isSupervisor
+              ? "Supervisor Officer"
+              : "Administrator",
+            firstName: isStudent ? "Juan" : isFaculty ? "Ana" : isSupervisor ? "Supervisor" : "Admin",
+            lastName: isStudent ? "Dela Cruz" : isFaculty ? "Cruz" : isSupervisor ? "Officer" : "User",
+            role,
+            studentProfileId: isStudent ? "dev-mock-student-profile" : null,
+            supervisorRecordId: isSupervisor ? "dev-mock-supervisor-record" : null,
           };
         }
 
