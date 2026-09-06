@@ -419,14 +419,14 @@ export default function LibraryPage() {
         <div className="space-y-4 pt-1">
           <Card className="p-6 space-y-5 shadow-sm border-hairline bg-surface">
             <div className="space-y-1">
-              <h2 className="text-xl font-bold">Create Study Deck</h2>
+              <h2 className="text-xl font-bold">Create Flashcards</h2>
               <p className="text-xs text-content-muted">
-                Paste your lesson notes, definitions, or CSV to instantly generate active recall modes.
+                Paste your lesson notes or drop a file to start studying.
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-content-muted">Deck Title / Subject</label>
+              <label className="text-xs font-semibold uppercase text-content-muted">Title</label>
               <Input
                 placeholder="e.g. IT 301 - Database Systems & SQL"
                 value={deckTitle}
@@ -460,7 +460,7 @@ export default function LibraryPage() {
                   </>
                 ) : (
                   <>
-                    <Sparkles className="size-4 mr-2" /> Build Deck & Study
+                    <Sparkles className="size-4 mr-2" /> Create Flashcards
                   </>
                 )}
               </Button>
