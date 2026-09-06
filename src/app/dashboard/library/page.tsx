@@ -67,7 +67,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
 
-  // In-slider Create Deck State
+  // In-slider Create Flashcards State
   const [notesInput, setNotesInput] = React.useState("");
   const [deckTitle, setDeckTitle] = React.useState("");
   const [isGenerating, setIsGenerating] = React.useState(false);

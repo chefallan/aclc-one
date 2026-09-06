@@ -57,7 +57,7 @@ export function StudyTabs({ className, activeTab, onTabChange }: StudyTabsProps)
         </Link>
       )}
 
-      {/* 2. Create Deck Tab (In the Middle) */}
+      {/* 2. Create Flashcards Tab (In the Middle) */}
       {onTabChange ? (
         <button
           type="button"
@@ -70,7 +70,7 @@ export function StudyTabs({ className, activeTab, onTabChange }: StudyTabsProps)
           )}
         >
           <PlusCircle className="size-4" />
-          <span>Create Deck</span>
+          <span>Create Flashcards</span>
         </button>
       ) : (
         <Link
@@ -84,7 +84,7 @@ export function StudyTabs({ className, activeTab, onTabChange }: StudyTabsProps)
           )}
         >
           <PlusCircle className="size-4" />
-          <span>Create Deck</span>
+          <span>Create Flashcards</span>
         </Link>
       )}
 

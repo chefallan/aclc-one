@@ -12,6 +12,8 @@ interface FlashcardDeckProps {
   onFlip: () => void;
 }
 
+import MathFormattedText from "@/components/study/MathFormattedText";
+
 export function FlashcardDeck({
   card,
   isFlipped,
@@ -53,13 +55,17 @@ export function FlashcardDeck({
     if (!userAnswer || isCorrectState === true) return;
     const timeout = setTimeout(() => {
       const u = userAnswer.trim().toLowerCase();
-      const target = (card.back || card.id_answer || card.mc_correct || "").trim().toLowerCase();
+      const target = (card.back || card.id_answer || card.mc_correct || card.tf_answer || "").trim().toLowerCase();
       if (u.length > 2 && (target.includes(u) || u.includes(target))) {
         setIsCorrectState(true);
       }
     }, 500);
     return () => clearTimeout(timeout);
   }, [userAnswer, isCorrectState, card]);
+
+  // Determine back answer text
+  const isTrueFalse = card.type === "true_false" || typeof card.tf_answer === "boolean" || Boolean(card.tf_answer);
+  const tfVal = String(card.tf_answer).toLowerCase() === "true";
 
   return (
     <div className="w-full" style={{ perspective: "1000px" }}>
@@ -83,9 +89,14 @@ export function FlashcardDeck({
           onClick={onFlip}
         >
           <div className="flex justify-between items-start">
-            <span className="text-xs uppercase tracking-wider font-bold text-[#5e6880]">
-              {card.chapter || "Chapter 1"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-wider font-bold text-[#5e6880]">
+                {card.chapter || "Chapter 1"}
+              </span>
+              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white/10 text-zinc-300">
+                {card.type}
+              </span>
+            </div>
             <div className="flex items-center gap-1">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
@@ -102,9 +113,9 @@ export function FlashcardDeck({
           </div>
 
           <div className="flex-1 overflow-auto py-6 flex items-center justify-center">
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-center text-[#eef0f6] break-words leading-relaxed">
-              {card.front}
-            </p>
+            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-center text-[#eef0f6] break-words leading-relaxed">
+              <MathFormattedText text={card.front} />
+            </div>
           </div>
 
           {/* Interactive Voice Mic & Typing Area */}
@@ -176,12 +187,42 @@ export function FlashcardDeck({
           </div>
 
           <div className="flex-1 overflow-auto py-6 flex items-center justify-center flex-col gap-3">
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-center text-[#eef0f6] break-words leading-relaxed">
-              {card.back || card.id_answer || card.mc_correct || ""}
-            </p>
-            {card.explanation && (
+            {isTrueFalse ? (
+              <div className="flex flex-col items-center gap-3">
+                <span
+                  className={`px-5 py-2 rounded-xl text-lg font-extrabold uppercase tracking-wider ${
+                    tfVal
+                      ? "bg-[#34d399]/20 text-[#34d399] border border-[#34d399]/40"
+                      : "bg-[#f87171]/20 text-[#f87171] border border-[#f87171]/40"
+                  }`}
+                >
+                  {tfVal ? "TRUE" : "FALSE"}
+                </span>
+                {card.explanation && (
+                  <p className="text-sm text-[#eef0f6] text-center max-w-md bg-[#1a1e28] p-4 rounded-xl border border-[rgba(255,255,255,0.05)]">
+                    <MathFormattedText text={card.explanation} />
+                  </p>
+                )}
+              </div>
+            ) : card.enum_items ? (
+              <div className="text-left w-full max-w-md bg-[#1a1e28] p-4 rounded-xl border border-[rgba(255,255,255,0.05)] space-y-2">
+                <p className="text-xs uppercase text-zinc-400 font-semibold mb-1">Items:</p>
+                {card.enum_items.split(";").map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-sm text-[#eef0f6]">
+                    <span className="text-[#34d399] font-bold">•</span>
+                    <MathFormattedText text={item.trim()} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-center text-[#eef0f6] break-words leading-relaxed">
+                <MathFormattedText text={card.back || card.id_answer || card.mc_correct || ""} />
+              </div>
+            )}
+
+            {!isTrueFalse && card.explanation && (
               <p className="text-xs text-[#9ba3b8] italic text-center max-w-md bg-[#1a1e28] p-3 rounded-xl border border-[rgba(255,255,255,0.05)]">
-                💡 {card.explanation}
+                💡 <MathFormattedText text={card.explanation} />
               </p>
             )}
           </div>

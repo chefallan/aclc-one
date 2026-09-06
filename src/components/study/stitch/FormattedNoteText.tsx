@@ -1,14 +1,15 @@
 "use client";
 
 import * as React from "react";
+import MathFormattedText from "@/components/study/MathFormattedText";
 
-export function FormattedNoteText({ text }: { text: string }) {
+export function FormattedNoteText({ text, hideBold = false }: { text: string; hideBold?: boolean }) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   if (lines.length <= 1 && !text.includes("•") && !text.includes("|") && !text.includes(";")) {
     return (
       <div className="text-sm text-content-muted leading-relaxed">
-        {text}
+        <MathFormattedText text={text} hideBold={hideBold} />
       </div>
     );
   }
@@ -34,29 +35,51 @@ export function FormattedNoteText({ text }: { text: string }) {
             <div className="flex-1 flex flex-wrap gap-x-3 gap-y-1">
               {segments.map((seg, sIdx) => {
                 const colonIdx = seg.indexOf(":");
-                const dashIdx = seg.indexOf(" – ") !== -1 ? seg.indexOf(" – ") : seg.indexOf(" - ");
+                const dashEnIdx = seg.indexOf(" – ");
+                const dashHyIdx = seg.indexOf(" - ");
+                const equalIdx = seg.indexOf(" = ");
 
-                if (colonIdx > 0 && colonIdx < 30) {
-                  const label = seg.slice(0, colonIdx).trim();
-                  const value = seg.slice(colonIdx + 1).trim();
+                let label = "";
+                let value = "";
+                let separator = "";
+
+                if (colonIdx > 0 && colonIdx < 40) {
+                  label = seg.slice(0, colonIdx).trim();
+                  value = seg.slice(colonIdx + 1).trim();
+                  separator = ":";
+                } else if (dashEnIdx > 0 && dashEnIdx < 40) {
+                  label = seg.slice(0, dashEnIdx).trim();
+                  value = seg.slice(dashEnIdx + 3).trim();
+                  separator = "–";
+                } else if (dashHyIdx > 0 && dashHyIdx < 40) {
+                  label = seg.slice(0, dashHyIdx).trim();
+                  value = seg.slice(dashHyIdx + 3).trim();
+                  separator = "-";
+                } else if (equalIdx > 0 && equalIdx < 40) {
+                  label = seg.slice(0, equalIdx).trim();
+                  value = seg.slice(equalIdx + 3).trim();
+                  separator = "=";
+                }
+
+                if (label && value) {
+                  const boldLabelText = label.includes("**") ? label : `**${label}**`;
                   return (
                     <span key={sIdx} className="inline-flex items-baseline gap-1">
-                      <strong className="text-content font-bold">{label}:</strong>
-                      <span>{value}</span>
-                    </span>
-                  );
-                } else if (dashIdx > 0) {
-                  const label = seg.slice(0, dashIdx).trim();
-                  const value = seg.slice(dashIdx + 3).trim();
-                  return (
-                    <span key={sIdx} className="inline-flex items-baseline gap-1">
-                      <strong className="text-content font-bold">{label} –</strong>
-                      <span>{value}</span>
+                      <span className="font-semibold text-content">
+                        <MathFormattedText text={boldLabelText} hideBold={hideBold} /> {separator}
+                      </span>
+                      <span>
+                        <MathFormattedText text={value} hideBold={hideBold} />
+                      </span>
                     </span>
                   );
                 }
 
-                return <span key={sIdx}>{seg}</span>;
+                return (
+                  <span key={sIdx}>
+                    <MathFormattedText text={seg} hideBold={hideBold} />
+                  </span>
+                );
               })}
             </div>
           </div>
@@ -65,3 +88,4 @@ export function FormattedNoteText({ text }: { text: string }) {
     </div>
   );
 }
+
