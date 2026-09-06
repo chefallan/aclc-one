@@ -116,11 +116,39 @@ export default function LibraryPage() {
             cardCount: d.cardCount || 10,
             cardsCsv: d.cardsCsv,
           }));
-          combined = [...commItems, ...combined];
+          combined = [
+            {
+              id: "pub-deck-cats",
+              title: "What Are Cats by Lawrence",
+              author: "Lawrence · Student Author",
+              type: "FLASHCARD",
+              status: "AVAILABLE",
+              course: "BSIT",
+              yearLevel: "2nd Year",
+              semester: "1st Sem",
+              tags: ["BSIT 2-1", "Biology", "Document Review", "Cats"],
+              yearPublished: 2026,
+              cardCount: 6,
+              cardsCsv: `deck_title,card_type,front,back,explanation,tags,mc_distractor_1,mc_distractor_2,mc_distractor_3,tf_correct,id_answer,id_acceptable_variants,enum_items,notes_content,image_keywords\n"What Are Cats by Lawrence","definition","What is a Cat (Felis catus)?","A small, carnivorous mammal belonging to the family Felidae, known for agility, retractable claws, and keen senses.","Domestic cats are the only domesticated species in the family Felidae.","Biology;Cats;Mammals","","","","","","","","","cat;feline;mammal"\n"What Are Cats by Lawrence","true_false","Cats are obligate carnivores, meaning their bodies require nutrients only found in animal meat.","True","Cats cannot synthesize certain essential nutrients like taurine without meat.","Biology;Diet","","","","True","","","","","carnivore;meat"\n"What Are Cats by Lawrence","multiple_choice","Which sensory organ in cats enables them to detect vibrations and navigate in the dark?","Whiskers (Vibrissae)","Whiskers are deeply embedded and connected to the nervous system.","Anatomy;Senses","Retractable Claws","Tapetum Lucidum","Jacobson's Organ","","","","","","whiskers;vibrissae"\n"What Are Cats by Lawrence","identification","The reflective layer of tissue behind a cat's retina that enhances night vision.","Tapetum Lucidum","Tapetum Lucidum reflects light back through the retina, improving night vision.","Anatomy;Vision","","","","","Tapetum Lucidum","tapetum, tapetum lucidum, feline retina","","","eye;retina;vision"\n"What Are Cats by Lawrence","enumeration","List 4 primary communication methods used by cats.","Purring; Meowing; Tail Posture; Scent Marking","Cats communicate using vocalizations, body language, and olfactory scent marks.","Behavior;Communication","","","","","","","Purring; Meowing; Tail Posture; Scent Marking","","purr;meow;tail"\n"What Are Cats by Lawrence","keyword","Feline Anatomy & Locomotion","Cats have **flexible spines**, **retractable claws**, and **specialized clavicles** that allow them to squeeze through any space larger than their head.","Their unique skeletal structure grants exceptional jumping ability.","Anatomy;Locomotion","","","","","","","","Feline anatomy features highly flexible vertebrae and specialized footpads.","skeleton;anatomy"`,
+            },...commItems, ...combined];
         }
 
         if (combined.length === 0) {
           combined = [
+            {
+              id: "pub-deck-cats",
+              title: "What Are Cats by Lawrence",
+              author: "Lawrence · Student Author",
+              type: "FLASHCARD",
+              status: "AVAILABLE",
+              course: "BSIT",
+              yearLevel: "2nd Year",
+              semester: "1st Sem",
+              tags: ["BSIT 2-1", "Biology", "Document Review", "Cats"],
+              yearPublished: 2026,
+              cardCount: 6,
+              cardsCsv: `deck_title,card_type,front,back,explanation,tags,mc_distractor_1,mc_distractor_2,mc_distractor_3,tf_correct,id_answer,id_acceptable_variants,enum_items,notes_content,image_keywords\n"What Are Cats by Lawrence","definition","What is a Cat (Felis catus)?","A small, carnivorous mammal belonging to the family Felidae, known for agility, retractable claws, and keen senses.","Domestic cats are the only domesticated species in the family Felidae.","Biology;Cats;Mammals","","","","","","","","","cat;feline;mammal"\n"What Are Cats by Lawrence","true_false","Cats are obligate carnivores, meaning their bodies require nutrients only found in animal meat.","True","Cats cannot synthesize certain essential nutrients like taurine without meat.","Biology;Diet","","","","True","","","","","carnivore;meat"\n"What Are Cats by Lawrence","multiple_choice","Which sensory organ in cats enables them to detect vibrations and navigate in the dark?","Whiskers (Vibrissae)","Whiskers are deeply embedded and connected to the nervous system.","Anatomy;Senses","Retractable Claws","Tapetum Lucidum","Jacobson's Organ","","","","","","whiskers;vibrissae"\n"What Are Cats by Lawrence","identification","The reflective layer of tissue behind a cat's retina that enhances night vision.","Tapetum Lucidum","Tapetum Lucidum reflects light back through the retina, improving night vision.","Anatomy;Vision","","","","","Tapetum Lucidum","tapetum, tapetum lucidum, feline retina","","","eye;retina;vision"\n"What Are Cats by Lawrence","enumeration","List 4 primary communication methods used by cats.","Purring; Meowing; Tail Posture; Scent Marking","Cats communicate using vocalizations, body language, and olfactory scent marks.","Behavior;Communication","","","","","","","Purring; Meowing; Tail Posture; Scent Marking","","purr;meow;tail"\n"What Are Cats by Lawrence","keyword","Feline Anatomy & Locomotion","Cats have **flexible spines**, **retractable claws**, and **specialized clavicles** that allow them to squeeze through any space larger than their head.","Their unique skeletal structure grants exceptional jumping ability.","Anatomy;Locomotion","","","","","","","","Feline anatomy features highly flexible vertebrae and specialized footpads.","skeleton;anatomy"`,
+            },
             {
               id: "pub-deck-1",
               title: "IT 301 - Database Systems & SQL Queries",
