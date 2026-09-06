@@ -567,7 +567,7 @@ export default function StudyDashboard() {
         {/* StitchApp Glass TopBar - Single clean header & exit */}
         <TopBar
           title={activeMode ? `${deck?.title || "Deck"} · ${modeTitle}` : deck?.title || "Flashcards"}
-          onBack={activeMode ? () => setActiveMode(null) : () => router.push("/dashboard/flashcards")}
+          onBack={activeMode ? () => setActiveMode(null) : () => router.push("/dashboard/library")}
         />
 
         {/* ========================================================================= */}

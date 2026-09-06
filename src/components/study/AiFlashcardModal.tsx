@@ -108,7 +108,7 @@ export function AiFlashcardModal({
       onCardsGenerated(result.cards, result.deck);
     }
     onClose();
-    router.push("/dashboard/flashcards");
+    router.push("/dashboard/library");
   }
 
   return (
