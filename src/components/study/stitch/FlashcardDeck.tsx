@@ -110,7 +110,6 @@ export function FlashcardDeck({
     isListening,
     transcript,
     interimTranscript,
-    permissionError,
     toggleListening,
     stopListening,
     setTranscript,
@@ -127,8 +126,7 @@ export function FlashcardDeck({
 
   React.useEffect(() => {
     if (transcript || interimTranscript) {
-      const combined = (transcript + " " + interimTranscript).trim();
-      setUserAnswer(combined);
+      setUserAnswer((transcript + interimTranscript).trim());
     }
   }, [transcript, interimTranscript]);
 
@@ -286,11 +284,7 @@ export function FlashcardDeck({
                 </button>
               </div>
 
-              {permissionError && (
-                <p className="text-xs text-[#f87171] flex items-center gap-1 font-medium bg-[#f87171]/10 px-3 py-1 rounded-full border border-[#f87171]/20">
-                  <AlertCircle size={13} /> {permissionError}
-                </p>
-              )}
+              
 
               <div className="flex flex-col items-center h-6">
                 <span className="text-xs text-[#34d399] font-bold">

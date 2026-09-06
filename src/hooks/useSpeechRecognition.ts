@@ -1,177 +1,186 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from 'react'
 
-const getSRClass = () => {
-  if (typeof window === "undefined") return null;
-  return (
-    (window as any).SpeechRecognition ||
-    (window as any).webkitSpeechRecognition ||
-    (window as any).mozSpeechRecognition ||
-    (window as any).msSpeechRecognition ||
-    null
-  );
-};
+const getSRClass = () =>
+  typeof window !== 'undefined'
+    ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    : null
+
+function buildRecognition(
+  SRC: any,
+  onFinal: (text: string) => void,
+  onInterim: (text: string) => void,
+  onEnd: () => void,
+  onError: (err: string) => void
+) {
+  const r = new SRC()
+  r.continuous = true
+  r.interimResults = true
+  r.lang = 'en-US'
+  r.maxAlternatives = 1
+
+  r.onresult = (event: any) => {
+    let final = ''
+    let interim = ''
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript
+      if (event.results[i].isFinal) final += t + ' '
+      else interim += t
+    }
+    if (final) onFinal(final)
+    if (interim !== undefined) onInterim(interim)
+  }
+
+  r.onerror = (e: any) => onError(e.error)
+  r.onend = onEnd
+
+  return r
+}
+
+// Continuous mode re-delivers the same finalized segment, so strip any tail of the
+// previously appended text that the new final starts with (e.g. "jeremy bentham" twice).
+function dedupeOverlap(prev: string, next: string): string {
+  const prevWords = prev.trim() ? prev.trim().split(/\s+/) : []
+  const nextWords = next.trim() ? next.trim().split(/\s+/) : []
+  if (!nextWords.length) return ''
+  if (!prevWords.length) return next.trim()
+  for (let n = Math.min(prevWords.length, nextWords.length); n >= 1; n--) {
+    if (prevWords.slice(-n).join(' ') === nextWords.slice(0, n).join(' ')) {
+      return nextWords.slice(n).join(' ')
+    }
+  }
+  return next.trim()
+}
 
 export function useSpeechRecognition() {
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [interimTranscript, setInterimTranscript] = useState("");
-  const [supported, setSupported] = useState(false);
-  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [interimTranscript, setInterimTranscript] = useState('')
+  const [supported] = useState(() => !!getSRClass())
 
-  const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
-  const streamRef = useRef<MediaStream | null>(null);
-  isListeningRef.current = isListening;
+  const activeRef = useRef<any>(null)     // currently running instance
+  const warmRef = useRef<any>(null)       // pre-warmed next instance
+  const userStoppedRef = useRef(false)    // did the user explicitly stop?
+  const isListeningRef = useRef(false)
+  const lastFinalRef = useRef('')         // last finalized text appended (dedupe helper)
+  isListeningRef.current = isListening
+
+  // Pre-warm a new recognition instance in the background so it starts instantly
+  const prewarm = useCallback(() => {
+    const SRC = getSRClass()
+    if (!SRC || warmRef.current) return
+    try {
+      const r = buildRecognition(SRC, () => {}, () => {}, () => {}, () => {})
+      warmRef.current = r
+    } catch (_) {}
+  }, [])
+
+  const maxDurationTimerRef = useRef<any>(null)
 
   useEffect(() => {
-    setSupported(!!getSRClass());
-  }, []);
+    prewarm()
+    return () => {
+      if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
+    }
+  }, [prewarm])
+
+  const startInstance = useCallback(() => {
+    const SRC = getSRClass()
+    if (!SRC) return
+
+    // Use pre-warmed instance if available, otherwise create fresh
+    const r = warmRef.current ?? buildRecognition(SRC, () => {}, () => {}, () => {}, () => {})
+    warmRef.current = null
+
+    r.onresult = (event: any) => {
+      let final = ''
+      let interim = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript
+        if (event.results[i].isFinal) final += t + ' '
+        else interim += t
+      }
+      if (final) {
+        const deduped = dedupeOverlap(lastFinalRef.current, final)
+        if (deduped) setTranscript(prev => prev + deduped + ' ')
+        lastFinalRef.current = final.trim()
+      }
+      setInterimTranscript(interim)
+    }
+
+    r.onerror = (e: any) => {
+      // 'no-speech' is normal — ignore and let onend handle restart
+      if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        userStoppedRef.current = true
+        setIsListening(false)
+      }
+    }
+
+    r.onend = () => {
+      // If user didn't stop and we're still supposed to be listening, restart immediately
+      if (!userStoppedRef.current && isListeningRef.current) {
+        // Immediately fire a fresh instance — no delay
+        try {
+          startInstance()
+        } catch (_) {}
+      } else {
+        setIsListening(false)
+        setInterimTranscript('')
+        // Pre-warm next instance for instant start next time
+        setTimeout(prewarm, 200)
+      }
+    }
+
+    try {
+      r.start()
+      activeRef.current = r
+    } catch (e: any) {
+      // 'already started' — ignore
+      if (e?.message?.includes('already started')) return
+      userStoppedRef.current = true
+      setIsListening(false)
+    }
+  }, [prewarm])
 
   const stopListening = useCallback(() => {
-    isListeningRef.current = false;
-    try {
-      if (recognitionRef.current) {
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.stop();
-      }
-    } catch (_) {}
-    recognitionRef.current = null;
-
-    if (streamRef.current) {
-      try {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      } catch (_) {}
-      streamRef.current = null;
+    userStoppedRef.current = true
+    setIsListening(false)
+    setInterimTranscript('')
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current)
+      maxDurationTimerRef.current = null
     }
+    try { activeRef.current?.stop() } catch (_) {}
+    activeRef.current = null
+  }, [])
 
-    setIsListening(false);
-    setInterimTranscript("");
-  }, []);
-
-  const startListening = useCallback(async () => {
-    const SRC = getSRClass();
-    if (!SRC) {
-      setPermissionError("Voice recognition is not supported in this browser. Please use Chrome or Edge.");
-      return;
-    }
-
-    stopListening();
-    setPermissionError(null);
-    setTranscript("");
-    setInterimTranscript("");
-
-    // Step 1: Explicitly request hardware microphone permission if available
-    try {
-      if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
-        // Keep stream alive or release tracks so SpeechRecognition can access mic
-        stream.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-    } catch (micErr: any) {
-      console.warn("Microphone hardware access warning:", micErr);
-      if (micErr.name === "NotAllowedError" || micErr.name === "PermissionDeniedError") {
-        setPermissionError("Microphone access is blocked. Click the lock/tune icon in the browser address bar to allow microphone.");
-        return;
-      }
-    }
-
-    // Step 2: Initialize Web Speech Recognition
-    try {
-      const recognition = new SRC();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        isListeningRef.current = true;
-        setIsListening(true);
-        setPermissionError(null);
-      };
-
-      recognition.onresult = (event: any) => {
-        let finalChunk = "";
-        let interimChunk = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const t = event.results[i][0]?.transcript || "";
-          if (event.results[i].isFinal) {
-            finalChunk += t + " ";
-          } else {
-            interimChunk += t;
-          }
-        }
-
-        if (finalChunk) {
-          setTranscript((prev) => (prev + " " + finalChunk).trim());
-        }
-        setInterimTranscript(interimChunk);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.warn("Speech recognition error:", event.error);
-        if (event.error === "not-allowed") {
-          setPermissionError("Microphone permission needed. Click the site settings in your URL bar to allow microphone.");
-          stopListening();
-        } else if (event.error === "service-not-allowed") {
-          setPermissionError("Speech recognition service temporarily unavailable in browser. Type your answer to test recall.");
-          stopListening();
-        } else if (event.error === "network") {
-          setPermissionError("Voice service offline. Type your answer directly.");
-          stopListening();
-        } else if (event.error === "no-speech") {
-          // Ignore silence timeout
-        } else if (event.error !== "aborted") {
-          setPermissionError("Microphone stopped. Tap to try again.");
-          stopListening();
-        }
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-        setInterimTranscript("");
-        isListeningRef.current = false;
-      };
-
-      recognition.start();
-      recognitionRef.current = recognition;
-      isListeningRef.current = true;
-      setIsListening(true);
-    } catch (err: any) {
-      console.error("Failed to start speech recognition:", err);
-      setPermissionError(err?.message || "Could not start microphone.");
-      setIsListening(false);
-      isListeningRef.current = false;
-    }
-  }, [stopListening]);
+  const startListening = useCallback(() => {
+    if (isListeningRef.current) return
+    userStoppedRef.current = false
+    setTranscript('')
+    setInterimTranscript('')
+    lastFinalRef.current = ''
+    setIsListening(true)
+    startInstance()
+    // Cap a single session at 20s — silence no longer stops it, so bound mic usage
+    if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
+    maxDurationTimerRef.current = setTimeout(() => {
+      if (isListeningRef.current) stopListening()
+    }, 20000)
+  }, [startInstance, stopListening])
 
   const toggleListening = useCallback(() => {
-    if (isListeningRef.current) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  }, [startListening, stopListening]);
-
-  useEffect(() => {
-    return () => {
-      stopListening();
-    };
-  }, [stopListening]);
+    if (isListeningRef.current) stopListening()
+    else startListening()
+  }, [startListening, stopListening])
 
   return {
     isListening,
     transcript,
     interimTranscript,
     supported,
-    permissionError,
     startListening,
     stopListening,
     toggleListening,
     setTranscript,
-  };
+  }
 }
