@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Star, RotateCcw, ChevronLeft, ChevronRight, Keyboard, CheckCircle2, Sparkles } from "lucide-react";
+import { Star, RotateCcw, ChevronLeft, ChevronRight, Keyboard, CheckCircle2, Mic, MicOff } from "lucide-react";
 import type { Card } from "@/lib/study/types";
 import { StatBadge } from "./StatBadge";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import MathFormattedText from "@/components/study/MathFormattedText";
 
 interface FlashcardDeckProps {
@@ -31,13 +32,41 @@ export function FlashcardDeck({
   const [animState, setAnimState] = React.useState<"idle" | "exit-left" | "exit-right" | "enter-from-right" | "enter-from-left">("idle");
   const isTransitioningRef = React.useRef(false);
 
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    toggleListening,
+    stopListening,
+    setTranscript,
+  } = useSpeechRecognition();
+
   const [userAnswer, setUserAnswer] = React.useState("");
   const [isCorrectState, setIsCorrectState] = React.useState<boolean | null>(null);
+
+  // Stop listening when card is flipped to back
+  const stopListeningRef = React.useRef(stopListening);
+  stopListeningRef.current = stopListening;
+
+  React.useEffect(() => {
+    if (isFlipped) {
+      stopListeningRef.current();
+    }
+  }, [isFlipped]);
+
+  // Sync spoken transcript into input field
+  React.useEffect(() => {
+    if (transcript || interimTranscript) {
+      const combined = (transcript + " " + interimTranscript).trim();
+      setUserAnswer(combined);
+    }
+  }, [transcript, interimTranscript]);
 
   const handleNextWithAnim = React.useCallback(() => {
     if (isTransitioningRef.current || !onNext) return;
     if (cards && currentIndex >= cards.length - 1) return;
 
+    stopListeningRef.current();
     isTransitioningRef.current = true;
     setAnimState("exit-left");
 
@@ -60,6 +89,7 @@ export function FlashcardDeck({
     if (isTransitioningRef.current || !onPrev) return;
     if (currentIndex <= 0) return;
 
+    stopListeningRef.current();
     isTransitioningRef.current = true;
     setAnimState("exit-right");
 
@@ -109,8 +139,9 @@ export function FlashcardDeck({
   // Reset answer when card changes
   React.useEffect(() => {
     setUserAnswer("");
+    setTranscript("");
     setIsCorrectState(null);
-  }, [card?.id]);
+  }, [card?.id, setTranscript]);
 
   // Active recall fuzzy matching
   React.useEffect(() => {
@@ -226,7 +257,7 @@ export function FlashcardDeck({
               </div>
             </div>
 
-            {/* Self-Recall Testing Area */}
+            {/* Voice Dictation & Self-Recall Testing Area */}
             <div className="mt-2 w-full flex flex-col items-center gap-3 relative">
               <div className="relative w-full max-w-md">
                 <input
@@ -234,9 +265,11 @@ export function FlashcardDeck({
                   className={`w-full text-center bg-[#1a1e28] border-2 ${
                     isCorrectState === true
                       ? "border-[#34d399] text-[#34d399]"
+                      : isListening
+                      ? "border-[#34d399] text-[#eef0f6] shadow-[0_0_15px_rgba(52,211,153,0.3)]"
                       : "border-[rgba(255,255,255,0.1)] focus:border-[#4f8ef7] text-[#eef0f6]"
                   } px-4 py-2.5 text-base font-semibold focus:outline-none transition-all rounded-xl shadow-inner`}
-                  placeholder="Type your answer to test recall..."
+                  placeholder="Type or speak answer to test recall..."
                   value={userAnswer}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => setUserAnswer(e.target.value)}
@@ -248,10 +281,34 @@ export function FlashcardDeck({
                 )}
               </div>
 
+              {/* Interactive Microphone Button */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleListening();
+                  }}
+                  className={`p-4 rounded-full transition-all duration-300 shadow-lg ${
+                    isListening
+                      ? "bg-[#34d399] text-[#0a0c10] scale-110 shadow-[0_0_25px_rgba(52,211,153,0.7)] animate-pulse"
+                      : "bg-[#1a1e28] text-[#eef0f6] hover:bg-[#222733] hover:scale-105 border border-[rgba(255,255,255,0.1)]"
+                  }`}
+                  title={isListening ? "Listening... click to stop" : "Click to speak answer"}
+                >
+                  {isListening ? <Mic size={26} /> : <MicOff size={26} />}
+                </button>
+              </div>
+
               <div className="flex flex-col items-center h-6">
-                <p className="text-xs text-[#5e6880] text-center flex items-center gap-1.5 cursor-pointer hover:text-[#4f8ef7] transition-colors" onClick={onFlip}>
-                  <RotateCcw className="size-3" /> Tap card or press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-zinc-300 font-mono text-[10px]">Space</kbd> to reveal answer
-                </p>
+                <span className="text-xs text-[#34d399] font-bold">
+                  {isListening ? "🎙️ Recording... speak your answer now" : ""}
+                </span>
+                {!isListening && (
+                  <p className="text-xs text-[#5e6880] text-center flex items-center gap-1.5 cursor-pointer hover:text-[#4f8ef7] transition-colors" onClick={onFlip}>
+                    <RotateCcw className="size-3" /> Tap card or press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-zinc-300 font-mono text-[10px]">Space</kbd> to reveal answer
+                  </p>
+                )}
               </div>
             </div>
           </div>

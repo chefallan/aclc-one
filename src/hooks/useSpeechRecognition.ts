@@ -5,17 +5,26 @@ export function useSpeechRecognition() {
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [supported, setSupported] = useState(false);
+  const [micActive, setMicActive] = useState(false);
 
   const recognitionRef = useRef<any>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const isListeningRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      setSupported(!!SR);
+      setSupported(!!SR || !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
     }
   }, []);
 
   const stopListening = useCallback(() => {
+    isListeningRef.current = false;
+    setIsListening(false);
+    setMicActive(false);
+    setInterimTranscript("");
+
+    // Stop and clean up recognition
     try {
       if (recognitionRef.current) {
         recognitionRef.current.onresult = null;
@@ -25,66 +34,102 @@ export function useSpeechRecognition() {
       }
     } catch (_) {}
     recognitionRef.current = null;
-    setIsListening(false);
+
+    // Release microphone hardware tracks
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (_) {}
+      mediaStreamRef.current = null;
+    }
   }, []);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (typeof window === "undefined") return;
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return;
 
-    // Clean up any existing instance
+    // Clean up previous instance
     stopListening();
 
+    // 1. Acquire and lock active microphone audio stream
     try {
-      const recognition = new SR();
-      recognition.continuous = false; // Standard robust mode that never gets killed by Chrome
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-
-      recognition.onresult = (event: any) => {
-        let final = "";
-        let interim = "";
-        for (let i = 0; i < event.results.length; i++) {
-          const res = event.results[i];
-          if (res.isFinal) {
-            final += res[0].transcript + " ";
-          } else {
-            interim += res[0].transcript;
-          }
-        }
-        if (final) {
-          setTranscript(final.trim());
-        }
-        setInterimTranscript(interim);
-      };
-
-      recognition.onerror = (e: any) => {
-        console.warn("Speech recognition event:", e.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-        recognitionRef.current = null;
-      };
-
-      recognition.start();
-      recognitionRef.current = recognition;
-      setIsListening(true);
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        setMicActive(true);
+      }
     } catch (err) {
-      console.warn("Speech start warning:", err);
-      setIsListening(false);
+      console.warn("Could not acquire microphone stream:", err);
     }
+
+    // 2. Start Speech Recognition
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SR) {
+      try {
+        const recognition = new SR();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          isListeningRef.current = true;
+          setIsListening(true);
+        };
+
+        recognition.onresult = (event: any) => {
+          let final = "";
+          let interim = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            if (res.isFinal) {
+              final += res[0].transcript + " ";
+            } else {
+              interim += res[0].transcript;
+            }
+          }
+          if (final) {
+            setTranscript((prev) => (prev + " " + final).trim());
+          }
+          setInterimTranscript(interim);
+        };
+
+        recognition.onerror = (e: any) => {
+          console.warn("Speech recognition event:", e.error);
+          if (e.error === "not-allowed") {
+            stopListening();
+          }
+        };
+
+        recognition.onend = () => {
+          // If the user hasn't explicitly stopped, keep listening active
+          if (isListeningRef.current && mediaStreamRef.current?.active) {
+            try {
+              recognition.start();
+            } catch (_) {
+              // Ignore already started
+            }
+          } else {
+            setIsListening(false);
+          }
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+        isListeningRef.current = true;
+        setIsListening(true);
+        return;
+      } catch (err) {
+        console.warn("Speech recognition init:", err);
+      }
+    }
+
+    // Fallback: If Web Speech is not present, microphone is still actively recording
+    isListeningRef.current = true;
+    setIsListening(true);
   }, [stopListening]);
 
   const toggleListening = useCallback(() => {
-    if (isListening) {
+    if (isListeningRef.current || isListening) {
       stopListening();
     } else {
       startListening();
@@ -98,7 +143,7 @@ export function useSpeechRecognition() {
   }, [stopListening]);
 
   return {
-    isListening,
+    isListening: isListening || micActive,
     transcript,
     interimTranscript,
     supported,
