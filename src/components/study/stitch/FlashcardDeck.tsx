@@ -28,18 +28,59 @@ export function FlashcardDeck({
 }: FlashcardDeckProps) {
   const card = propCard || (cards && cards.length > 0 ? cards[Math.min(currentIndex, cards.length - 1)] : undefined);
 
-  // Directional slide tracking
-  const prevIndexRef = React.useRef(currentIndex);
-  const [slideDirection, setSlideDirection] = React.useState<"next" | "prev" | "none">("none");
+  // Physical X-axis slide state: 'idle' | 'exit-left' | 'exit-right' | 'enter-from-right' | 'enter-from-left'
+  const [animState, setAnimState] = React.useState<"idle" | "exit-left" | "exit-right" | "enter-from-right" | "enter-from-left">("idle");
+  const isTransitioningRef = React.useRef(false);
 
-  React.useEffect(() => {
-    if (currentIndex > prevIndexRef.current) {
-      setSlideDirection("next");
-    } else if (currentIndex < prevIndexRef.current) {
-      setSlideDirection("prev");
-    }
-    prevIndexRef.current = currentIndex;
-  }, [currentIndex]);
+  const handleNextWithAnim = React.useCallback(() => {
+    if (isTransitioningRef.current || !onNext) return;
+    if (cards && currentIndex >= cards.length - 1) return;
+
+    isTransitioningRef.current = true;
+    // Step 1: Slide current card out to the left (out of bounds)
+    setAnimState("exit-left");
+
+    setTimeout(() => {
+      onNext();
+      // Step 2: Position new card immediately out of bounds on the right
+      setAnimState("enter-from-right");
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Step 3: Glide smoothly into center
+          setAnimState("idle");
+          setTimeout(() => {
+            isTransitioningRef.current = false;
+          }, 300);
+        });
+      });
+    }, 220);
+  }, [onNext, cards, currentIndex]);
+
+  const handlePrevWithAnim = React.useCallback(() => {
+    if (isTransitioningRef.current || !onPrev) return;
+    if (currentIndex <= 0) return;
+
+    isTransitioningRef.current = true;
+    // Step 1: Slide current card out to the right (out of bounds)
+    setAnimState("exit-right");
+
+    setTimeout(() => {
+      onPrev();
+      // Step 2: Position previous card immediately out of bounds on the left
+      setAnimState("enter-from-left");
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Step 3: Glide smoothly into center
+          setAnimState("idle");
+          setTimeout(() => {
+            isTransitioningRef.current = false;
+          }, 300);
+        });
+      });
+    }, 220);
+  }, [onPrev, currentIndex]);
 
   // Keyboard navigation listener (ArrowLeft, ArrowRight, Space/Enter)
   React.useEffect(() => {
@@ -51,10 +92,10 @@ export function FlashcardDeck({
 
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        if (onNext) onNext();
+        handleNextWithAnim();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        if (onPrev) onPrev();
+        handlePrevWithAnim();
       } else if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         if (onFlip) onFlip();
@@ -63,7 +104,7 @@ export function FlashcardDeck({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onNext, onPrev, onFlip]);
+  }, [handleNextWithAnim, handlePrevWithAnim, onFlip]);
 
   const {
     isListening,
@@ -119,18 +160,49 @@ export function FlashcardDeck({
 
   const badgeCategory = card.chapter || card.subject || (card.tags && card.tags[0]) || "Flashcard";
 
+  // Compute transform & opacity styles based on physical X-axis position
+  const getSlideStyle = () => {
+    switch (animState) {
+      case "exit-left":
+        return {
+          transform: "translateX(-120%) scale(0.92) rotate(-3deg)",
+          opacity: 0,
+          transition: "transform 220ms cubic-bezier(0.4, 0, 1, 1), opacity 220ms ease-in",
+        };
+      case "exit-right":
+        return {
+          transform: "translateX(120%) scale(0.92) rotate(3deg)",
+          opacity: 0,
+          transition: "transform 220ms cubic-bezier(0.4, 0, 1, 1), opacity 220ms ease-in",
+        };
+      case "enter-from-right":
+        return {
+          transform: "translateX(120%) scale(0.92) rotate(3deg)",
+          opacity: 0,
+          transition: "none",
+        };
+      case "enter-from-left":
+        return {
+          transform: "translateX(-120%) scale(0.92) rotate(-3deg)",
+          opacity: 0,
+          transition: "none",
+        };
+      case "idle":
+      default:
+        return {
+          transform: "translateX(0) scale(1) rotate(0deg)",
+          opacity: 1,
+          transition: "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 240ms ease-out",
+        };
+    }
+  };
+
   return (
-    <div className="w-full space-y-4" style={{ perspective: "1000px" }}>
-      {/* Animated Card Container with Directional Slide */}
+    <div className="w-full space-y-4 overflow-hidden py-2" style={{ perspective: "1200px" }}>
+      {/* Physical X-axis animated wrapper */}
       <div
-        key={card.id || currentIndex}
-        className={`w-full transition-all duration-300 ease-out ${
-          slideDirection === "next"
-            ? "animate-in fade-in slide-in-from-right-16 duration-300"
-            : slideDirection === "prev"
-            ? "animate-in fade-in slide-in-from-left-16 duration-300"
-            : "animate-in fade-in duration-200"
-        }`}
+        className="w-full will-change-transform"
+        style={getSlideStyle()}
       >
         <div
           className="w-full transition-transform duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] grid cursor-pointer"
@@ -147,7 +219,7 @@ export function FlashcardDeck({
                 : isCorrectState === false
                 ? "border-[#f87171] shadow-[0_0_25px_rgba(248,113,113,0.35)]"
                 : "border-[rgba(255,255,255,0.07)] shadow-2xl"
-            } p-6 md:p-8 flex flex-col justify-between transition-all duration-300 cyber-glow bg-[#12151c]/90`}
+            } p-6 md:p-8 flex flex-col justify-between transition-all duration-300 cyber-glow bg-[#12151c]/90 select-none`}
             style={{ backfaceVisibility: "hidden" }}
             onClick={onFlip}
           >
@@ -235,7 +307,7 @@ export function FlashcardDeck({
 
           {/* Back Face: Answer / Definition */}
           <div
-            className="col-start-1 row-start-1 min-h-[25rem] md:min-h-[29rem] h-full glass-panel rounded-2xl border border-[rgba(255,255,255,0.07)] shadow-2xl p-6 md:p-8 flex flex-col justify-between bg-[#12151c]/90"
+            className="col-start-1 row-start-1 min-h-[25rem] md:min-h-[29rem] h-full glass-panel rounded-2xl border border-[rgba(255,255,255,0.07)] shadow-2xl p-6 md:p-8 flex flex-col justify-between bg-[#12151c]/90 select-none"
             style={{
               backfaceVisibility: "hidden",
               transform: "rotateY(180deg)",
@@ -272,7 +344,7 @@ export function FlashcardDeck({
       <div className="flex items-center justify-between pt-2">
         <button
           type="button"
-          onClick={onPrev}
+          onClick={handlePrevWithAnim}
           disabled={!onPrev || currentIndex <= 0}
           className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-sm font-medium flex items-center gap-2 disabled:opacity-30 disabled:pointer-events-none transition-all"
         >
@@ -290,11 +362,11 @@ export function FlashcardDeck({
 
         <button
           type="button"
-          onClick={onNext}
+          onClick={handleNextWithAnim}
           disabled={!onNext || (cards && currentIndex >= cards.length - 1)}
           className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium flex items-center gap-2 disabled:opacity-30 disabled:pointer-events-none transition-all shadow-md"
         >
-          Next <span className="hidden sm:inline text-xs text-white/70 font-mono">[→]</span> <ChevronRight size={16} />
+          Next <span className="hidden sm:inline text-white/70 font-mono">[→]</span> <ChevronRight size={16} />
         </button>
       </div>
     </div>
