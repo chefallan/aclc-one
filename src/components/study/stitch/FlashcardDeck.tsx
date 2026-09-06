@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Star, RotateCcw, Mic, MicOff, AlertCircle, ChevronLeft, ChevronRight, Keyboard } from "lucide-react";
+import { Star, RotateCcw, ChevronLeft, ChevronRight, Keyboard, CheckCircle2, Sparkles } from "lucide-react";
 import type { Card } from "@/lib/study/types";
 import { StatBadge } from "./StatBadge";
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import MathFormattedText from "@/components/study/MathFormattedText";
 
 interface FlashcardDeckProps {
@@ -32,22 +31,22 @@ export function FlashcardDeck({
   const [animState, setAnimState] = React.useState<"idle" | "exit-left" | "exit-right" | "enter-from-right" | "enter-from-left">("idle");
   const isTransitioningRef = React.useRef(false);
 
+  const [userAnswer, setUserAnswer] = React.useState("");
+  const [isCorrectState, setIsCorrectState] = React.useState<boolean | null>(null);
+
   const handleNextWithAnim = React.useCallback(() => {
     if (isTransitioningRef.current || !onNext) return;
     if (cards && currentIndex >= cards.length - 1) return;
 
     isTransitioningRef.current = true;
-    // Step 1: Slide current card out to the left (out of bounds)
     setAnimState("exit-left");
 
     setTimeout(() => {
       onNext();
-      // Step 2: Position new card immediately out of bounds on the right
       setAnimState("enter-from-right");
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          // Step 3: Glide smoothly into center
           setAnimState("idle");
           setTimeout(() => {
             isTransitioningRef.current = false;
@@ -62,17 +61,14 @@ export function FlashcardDeck({
     if (currentIndex <= 0) return;
 
     isTransitioningRef.current = true;
-    // Step 1: Slide current card out to the right (out of bounds)
     setAnimState("exit-right");
 
     setTimeout(() => {
       onPrev();
-      // Step 2: Position previous card immediately out of bounds on the left
       setAnimState("enter-from-left");
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          // Step 3: Glide smoothly into center
           setAnimState("idle");
           setTimeout(() => {
             isTransitioningRef.current = false;
@@ -87,6 +83,10 @@ export function FlashcardDeck({
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable)) {
+        if (e.key === "Enter" && onFlip) {
+          e.preventDefault();
+          onFlip();
+        }
         return;
       }
 
@@ -106,39 +106,13 @@ export function FlashcardDeck({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleNextWithAnim, handlePrevWithAnim, onFlip]);
 
-  const {
-    isListening,
-    transcript,
-    interimTranscript,
-    toggleListening,
-    stopListening,
-    setTranscript,
-  } = useSpeechRecognition();
-
-  const [userAnswer, setUserAnswer] = React.useState("");
-  const [isCorrectState, setIsCorrectState] = React.useState<boolean | null>(null);
-
-  const stopListeningRef = React.useRef(stopListening);
-  stopListeningRef.current = stopListening;
-
-  React.useEffect(() => {
-    if (isFlipped) {
-      stopListeningRef.current();
-    }
-  }, [isFlipped]);
-
-  React.useEffect(() => {
-    if (transcript || interimTranscript) {
-      setUserAnswer((transcript + interimTranscript).trim());
-    }
-  }, [transcript, interimTranscript]);
-
+  // Reset answer when card changes
   React.useEffect(() => {
     setUserAnswer("");
-    setTranscript("");
     setIsCorrectState(null);
-  }, [card?.id, setTranscript]);
+  }, [card?.id]);
 
+  // Active recall fuzzy matching
   React.useEffect(() => {
     if (!userAnswer || isCorrectState === true || !card) return;
     const timeout = setTimeout(() => {
@@ -147,7 +121,7 @@ export function FlashcardDeck({
       if (u.length > 2 && (target.includes(u) || u.includes(target))) {
         setIsCorrectState(true);
       }
-    }, 500);
+    }, 400);
     return () => clearTimeout(timeout);
   }, [userAnswer, isCorrectState, card]);
 
@@ -216,9 +190,7 @@ export function FlashcardDeck({
           <div
             className={`col-start-1 row-start-1 min-h-[25rem] md:min-h-[29rem] h-full glass-panel rounded-2xl border ${
               isCorrectState === true
-                ? "border-[#34d399] shadow-[0_0_25px_rgba(52,211,153,0.35)]"
-                : isCorrectState === false
-                ? "border-[#f87171] shadow-[0_0_25px_rgba(248,113,113,0.35)]"
+                ? "border-[#34d399] shadow-[0_0_30px_rgba(52,211,153,0.4)]"
                 : "border-[rgba(255,255,255,0.07)] shadow-2xl"
             } p-6 md:p-8 flex flex-col justify-between transition-all duration-300 cyber-glow bg-[#12151c]/90 select-none`}
             style={{ backfaceVisibility: "hidden" }}
@@ -254,50 +226,32 @@ export function FlashcardDeck({
               </div>
             </div>
 
-            {/* Voice Mic & Self-Recall Area */}
+            {/* Self-Recall Testing Area */}
             <div className="mt-2 w-full flex flex-col items-center gap-3 relative">
-              <input
-                type="text"
-                className="w-full max-w-md text-center bg-[#1a1e28] border-b-2 border-[rgba(255,255,255,0.1)] px-4 py-2.5 text-base font-semibold text-[#eef0f6] focus:outline-none focus:border-b-[#4f8ef7] transition-colors rounded-t-lg"
-                placeholder="Type or speak answer to test recall..."
-                value={userAnswer}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  setUserAnswer(e.target.value);
-                  setTranscript(e.target.value);
-                }}
-              />
-
-              {/* Voice Dictation Mic */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleListening();
-                  }}
-                  className={`p-4 rounded-full transition-all duration-300 shadow-lg ${
-                    isListening
-                      ? "bg-[#34d399] text-[#0a0c10] scale-110 shadow-[0_0_25px_rgba(52,211,153,0.6)] animate-pulse"
-                      : "bg-[#1a1e28] text-[#eef0f6] hover:bg-[#222733] hover:scale-105 border border-[rgba(255,255,255,0.1)]"
-                  }`}
-                  title={isListening ? "Listening... tap to stop" : "Tap microphone to speak answer"}
-                >
-                  {isListening ? <Mic size={26} /> : <MicOff size={26} />}
-                </button>
+              <div className="relative w-full max-w-md">
+                <input
+                  type="text"
+                  className={`w-full text-center bg-[#1a1e28] border-2 ${
+                    isCorrectState === true
+                      ? "border-[#34d399] text-[#34d399]"
+                      : "border-[rgba(255,255,255,0.1)] focus:border-[#4f8ef7] text-[#eef0f6]"
+                  } px-4 py-2.5 text-base font-semibold focus:outline-none transition-all rounded-xl shadow-inner`}
+                  placeholder="Type your answer to test recall..."
+                  value={userAnswer}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                />
+                {isCorrectState === true && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#34d399] flex items-center gap-1 text-xs font-bold animate-in fade-in">
+                    <CheckCircle2 size={16} /> Correct!
+                  </span>
+                )}
               </div>
 
-              
-
               <div className="flex flex-col items-center h-6">
-                <span className="text-xs text-[#34d399] font-bold">
-                  {isListening ? "🎙️ Listening... speak clearly now" : ""}
-                </span>
-                {!isListening && (
-                  <p className="text-xs text-[#5e6880] text-center flex items-center gap-1 cursor-pointer hover:text-[#4f8ef7] transition-colors" onClick={onFlip}>
-                    <RotateCcw className="size-3" /> Tap card or press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-zinc-300 font-mono text-[10px]">Space</kbd> to reveal
-                  </p>
-                )}
+                <p className="text-xs text-[#5e6880] text-center flex items-center gap-1.5 cursor-pointer hover:text-[#4f8ef7] transition-colors" onClick={onFlip}>
+                  <RotateCcw className="size-3" /> Tap card or press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-zinc-300 font-mono text-[10px]">Space</kbd> to reveal answer
+                </p>
               </div>
             </div>
           </div>
