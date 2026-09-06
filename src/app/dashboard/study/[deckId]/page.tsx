@@ -525,7 +525,7 @@ export default function StudyDashboard() {
         `,
       }}
     >
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         {/* StitchApp Glass TopBar - Single clean header & exit */}
         <TopBar
           title={activeMode ? `${deck?.title || "Deck"} · ${modeTitle}` : deck?.title || "Flashcards"}

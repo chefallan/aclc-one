@@ -226,17 +226,44 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
       <main
         id="main"
         className={cn(
-          "mx-auto w-full flex-1 px-gutter py-5",
-          // Without a sidebar the content is centred in a readable column. With
-          // one, the column is already offset, so it gets the rest of the room.
-          hasSidebar ? "max-w-6xl md:max-w-none md:pr-6" : "max-w-6xl",
-          isStudent && "pb-28"
+          "mx-auto w-full flex-1 transition-all duration-300",
+          isStudyMode
+            ? "max-w-none p-0"
+            : cn(
+                "px-gutter py-5",
+                hasSidebar ? "max-w-6xl md:max-w-none md:pr-6" : "max-w-6xl",
+                isStudent && "pb-28"
+              )
         )}
       >
         {children}
       </main>
 
-      {isStudent && <StudentTabBar items={items} isActive={isActive} />}
+      {/* Bottom edge hover sensor for Study Focus Mode */}
+      {isStudent && isStudyMode && (
+        <div
+          onMouseEnter={() => setBottomHovered(true)}
+          className="fixed bottom-0 inset-x-0 h-4 z-50 pointer-events-auto"
+          aria-hidden="true"
+        />
+      )}
+
+      {isStudent && (
+        <div
+          onMouseEnter={() => isStudyMode && setBottomHovered(true)}
+          onMouseLeave={() => isStudyMode && setBottomHovered(false)}
+          className={cn(
+            "transition-all duration-300 ease-out z-40",
+            isStudyMode && (
+              bottomHovered
+                ? "translate-y-0 opacity-100"
+                : "translate-y-full opacity-0 pointer-events-none"
+            )
+          )}
+        >
+          <StudentTabBar items={items} isActive={isActive} />
+        </div>
+      )}
     </div>
   );
 }
