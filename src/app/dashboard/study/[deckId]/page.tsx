@@ -115,14 +115,18 @@ export default function StudyDashboard() {
   React.useEffect(() => {
     let mounted = true;
     async function loadDeck() {
-      // 1. Check if active_deck is stored in localStorage
+      // 1. Check if active_deck is stored in localStorage with integrity validation
       try {
         const cachedDeck = localStorage.getItem("active_deck");
         const cachedCards = localStorage.getItem("active_cards");
-        if (cachedDeck && cachedCards) {
+        if (cachedDeck && cachedCards && deckId !== "pub-deck-cats") {
           const parsedDeck = JSON.parse(cachedDeck);
           const parsedCards = JSON.parse(cachedCards);
-          if (parsedDeck.id === deckId || deckId === "pub-deck-cats") {
+          // Verify cards are not corrupted (e.g. front is not the deck title)
+          const isCorrupted = Array.isArray(parsedCards) && parsedCards.some(
+            (c: any) => c.front === parsedDeck.title || c.chapter === c.front
+          );
+          if (parsedDeck.id === deckId && !isCorrupted) {
             if (mounted) {
               setDeck(parsedDeck);
               setCards(parsedCards);
@@ -130,6 +134,9 @@ export default function StudyDashboard() {
               setLoading(false);
               return;
             }
+          } else if (isCorrupted) {
+            localStorage.removeItem("active_deck");
+            localStorage.removeItem("active_cards");
           }
         }
       } catch (e) {

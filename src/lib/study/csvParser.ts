@@ -10,6 +10,7 @@ interface CSVRow {
   subject?: string;
   lesson?: string;
   type: string;
+  tags?: string;
   mc_correct?: string;
   mc_distractor1?: string;
   mc_distractor2?: string;
@@ -85,14 +86,15 @@ function splitCSVRows(text: string): string[] {
   return rows;
 }
 
-function parseCSV(text: string): CSVRow[] {
+function parseCSV(text: string): { rows: CSVRow[]; inferredDeckTitle: string } {
   const cleanText = text.replace(/^\uFEFF/, '').trim();
   const lines = splitCSVRows(cleanText);
 
-  if (lines.length < 2) return [];
+  if (lines.length < 2) return { rows: [], inferredDeckTitle: '' };
 
   const header = parseCSVLine(lines[0]).map((h) => h.toLowerCase().trim().replace(/['"]/g, ''));
   const rows: CSVRow[] = [];
+  let inferredDeckTitle = '';
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i]);
@@ -101,7 +103,10 @@ function parseCSV(text: string): CSVRow[] {
       row[key] = (values[idx] ?? '').trim().replace(/^["']|["']$/g, '');
     });
 
-    // Support both 15-column schema and legacy schema
+    if (row.deck_title && !inferredDeckTitle) {
+      inferredDeckTitle = row.deck_title;
+    }
+
     const rawType = (row.card_type || row.type || 'definition').toLowerCase().trim();
     const cleanType = ['definition', 'keyword', 'multiple_choice', 'true_false', 'enumeration', 'identification'].includes(rawType)
       ? rawType
@@ -111,23 +116,37 @@ function parseCSV(text: string): CSVRow[] {
       : rawType === 'id' ? 'identification'
       : 'definition';
 
+    // Parse front and back safely from their respective named columns
+    const front = row.front || '';
+    const back = row.back || row.id_answer || row.mc_correct || row.tf_correct || row.tf_answer || '';
+
+    // Derive clean chapter tag
+    let chapter = row.chapter || '';
+    if (!chapter && row.tags) {
+      chapter = row.tags.split(/[;,]/)[0]?.trim() || '';
+    }
+    if (!chapter) {
+      chapter = cleanType === 'definition' ? 'Definition' : cleanType === 'true_false' ? 'True / False' : 'Concepts';
+    }
+
     rows.push({
       deck_title:             row.deck_title || '',
-      front:                  row.front || '',
-      back:                   row.back || '',
-      chapter:                row.chapter || '',
+      front,
+      back,
+      chapter,
       subject:                row.subject || '',
       lesson:                 row.lesson || '',
       type:                   cleanType,
-      mc_correct:             row.mc_correct || row.back || '',
+      tags:                   row.tags || '',
+      mc_correct:             row.mc_correct || back,
       mc_distractor1:         row.mc_distractor_1 || row.mc_distractor1 || '',
       mc_distractor2:         row.mc_distractor_2 || row.mc_distractor2 || '',
       mc_distractor3:         row.mc_distractor_3 || row.mc_distractor3 || '',
-      tf_correct:             row.tf_correct || row.tf_answer || row.true_false || row.back || '',
-      tf_answer:              row.tf_correct || row.tf_answer || row.true_false || row.back || '',
+      tf_correct:             row.tf_correct || row.tf_answer || (back.toLowerCase() === 'true' ? 'True' : 'False'),
+      tf_answer:              row.tf_correct || row.tf_answer || (back.toLowerCase() === 'true' ? 'True' : 'False'),
       explanation:            row.explanation || row.tf_explanation || '',
-      enum_items:             row.enum_items || row.enumeration_items || row.back || '',
-      id_answer:              row.id_answer || row.identification_answer || row.back || '',
+      enum_items:             row.enum_items || row.enumeration_items || back,
+      id_answer:              row.id_answer || row.identification_answer || back,
       id_acceptable_variants: row.id_acceptable_variants || row.id_variants || row.identification_variants || '',
       id_variants:            row.id_acceptable_variants || row.id_variants || row.identification_variants || '',
       notes_content:          row.notes_content || '',
@@ -135,40 +154,7 @@ function parseCSV(text: string): CSVRow[] {
     });
   }
 
-  return rows;
-}
-
-function resolveBack(row: CSVRow): string | null {
-  const type = row.type.toLowerCase().trim();
-
-  switch (type) {
-    case 'multiple_choice':
-    case 'mc':
-      return row.mc_correct || row.back || null;
-
-    case 'true_false':
-    case 'tf': {
-      const answer = (row.tf_correct || row.tf_answer || row.back || '').toLowerCase().trim();
-      if (!answer) return null;
-      const isTrue = answer === 'true' || answer === 't' || answer === 'yes' || answer === '1';
-      return isTrue ? 'True' : 'False';
-    }
-
-    case 'enumeration':
-    case 'enum': {
-      const raw = row.enum_items || row.back;
-      if (!raw) return null;
-      const items = raw.split(/[;,|]+/).map(s => s.trim()).filter(Boolean);
-      return items.length >= 2 ? items.join('; ') : raw;
-    }
-
-    case 'identification':
-    case 'id':
-      return row.id_answer || row.back || null;
-
-    default:
-      return row.back || null;
-  }
+  return { rows, inferredDeckTitle };
 }
 
 function buildCards(rows: CSVRow[], deckId: string, primarySubject: string): Card[] {
@@ -178,14 +164,15 @@ function buildCards(rows: CSVRow[], deckId: string, primarySubject: string): Car
     const front = row.front?.trim();
     if (!front) return;
 
-    const back = resolveBack(row) || row.back || front;
+    const back = row.back?.trim() || front;
+    const tagList = row.tags ? row.tags.split(/[;,]/).map(t => t.trim()).filter(Boolean) : [row.chapter || primarySubject];
 
     cards.push({
       id: `card-csv-${Date.now()}-${i}`,
       deckId,
       front,
       back,
-      chapter: row.chapter || 'Chapter 1',
+      chapter: row.chapter || 'Concepts',
       subject: row.subject || primarySubject,
       lesson: row.lesson || 'Lesson 1',
       type: row.type as CardType,
@@ -196,6 +183,7 @@ function buildCards(rows: CSVRow[], deckId: string, primarySubject: string): Car
       wrongCount: 0,
       lastReviewed: null,
       nextReview: null,
+      tags: tagList,
       explanation: row.explanation || '',
       mc_correct: row.mc_correct || back,
       mc_distractor_1: row.mc_distractor1 || '',
@@ -218,16 +206,16 @@ function buildCards(rows: CSVRow[], deckId: string, primarySubject: string): Car
 
 export function parseCSVFile(
   text: string,
-  title: string
+  title?: string
 ): { deck: Deck; cards: Card[] } {
   const fixedCSV = auditAndFixCSV(text);
-  const rows = parseCSV(fixedCSV);
+  const { rows, inferredDeckTitle } = parseCSV(fixedCSV);
   const subjects = [...new Set(rows.map(r => r.subject).filter(Boolean))];
   const primarySubject = subjects[0] ?? 'General';
 
-  const inferredTitle = title && title !== 'Untitled Deck' && title !== 'Generated Deck' && title !== 'Study Deck'
+  const resolvedTitle = title && title !== 'Untitled Deck' && title !== 'Generated Deck' && title !== 'Study Deck'
     ? title
-    : extractSmartTitle(text, primarySubject);
+    : (inferredDeckTitle || extractSmartTitle(text, primarySubject));
 
   const deckId = `deck-csv-${Date.now()}`;
   const uploadedAt = new Date().toISOString();
@@ -236,7 +224,7 @@ export function parseCSVFile(
 
   const deck: Deck = {
     id: deckId,
-    title: inferredTitle,
+    title: resolvedTitle,
     subject: primarySubject,
     uploadedAt,
     cards,

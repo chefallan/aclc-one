@@ -1,9 +1,15 @@
 const EXPECTED_COLS = 15;
 
-export const CSV_HEADER = [
+export const LEGACY_CSV_HEADER = [
   'front', 'back', 'chapter', 'subject', 'lesson', 'type',
   'mc_correct', 'mc_distractor1', 'mc_distractor2', 'mc_distractor3',
   'tf_answer', 'explanation', 'enum_items', 'id_answer', 'id_variants',
+].join(',');
+
+export const STITCH_CSV_HEADER = [
+  'deck_title', 'card_type', 'front', 'back', 'explanation', 'tags',
+  'mc_distractor_1', 'mc_distractor_2', 'mc_distractor_3',
+  'tf_correct', 'id_answer', 'id_acceptable_variants', 'enum_items', 'notes_content', 'image_keywords',
 ].join(',');
 
 function parseCSVRow(line: string): string[] {
@@ -16,61 +22,21 @@ function parseCSVRow(line: string): string[] {
       if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
       else inQuotes = !inQuotes;
     } else if (ch === ',' && !inQuotes) {
-      result.push(cur); cur = '';
+      result.push(cur.trim()); cur = '';
     } else {
       cur += ch;
     }
   }
-  result.push(cur);
+  result.push(cur.trim());
   return result;
 }
 
 function quoteField(val: string): string {
   if (!val) return '';
-  if (val.includes(',') || val.includes('"') || val.includes('\n') || val.includes(' ')) {
+  if (val.includes(',') || val.includes('"') || val.includes('\n') || val.includes(';')) {
     return '"' + val.replace(/"/g, '""') + '"';
   }
   return val;
-}
-
-const KNOWN_TYPES = new Set([
-  'definition', 'concept', 'formula', 'process', 'list', 'keyword',
-  'multiple_choice', 'mc', 'true_false', 'tf', 'enumeration', 'enum', 'identification', 'id'
-]);
-
-function fixRow(row: string[]): string[] {
-  let r = [...row];
-
-  if (r.length === 3 && KNOWN_TYPES.has(r[2]?.toLowerCase().trim())) {
-    r = [r[0], r[1], '', '', '', r[2]];
-  } else if (r.length === 4 && KNOWN_TYPES.has(r[3]?.toLowerCase().trim())) {
-    r = [r[0], r[1], r[2], '', '', r[3]];
-  }
-
-  const type = (r[5] || '').toLowerCase().trim().replace(/"/g, '');
-  const cols = r.length;
-
-  if (cols === EXPECTED_COLS) return r;
-
-  if (cols === 16) {
-    if (type === 'identification') {
-      const answer = r[14] || '';
-      const variants = r[15] || '';
-      return [r[0], r[1], r[2], r[3], r[4], r[5], '', '', '', '', '', '', '', answer, variants];
-    }
-    return r.slice(0, EXPECTED_COLS);
-  }
-
-  if (cols === 14) {
-    return [...r.slice(0, 11), '', ...r.slice(11)];
-  }
-
-  if (cols < 14) {
-    const padded = [...r, ...Array(14 - cols).fill('')];
-    return [...padded.slice(0, 11), '', ...padded.slice(11)];
-  }
-
-  return r.slice(0, EXPECTED_COLS);
 }
 
 function splitCSVRows(text: string): string[] {
@@ -101,27 +67,27 @@ function splitCSVRows(text: string): string[] {
 }
 
 export function auditAndFixCSV(csvText: string): string {
-  const lines = splitCSVRows(csvText.trim());
+  const clean = csvText.replace(/^\uFEFF/, '').trim();
+  const lines = splitCSVRows(clean);
   if (!lines.length) return '';
 
-  let dataStart = 0;
-  const firstLine = lines[0].trim();
-  if (firstLine.startsWith('front') || firstLine.includes('type')) {
-    dataStart = 1;
+  const firstLine = lines[0].toLowerCase();
+
+  // If already contains stitch/claude 15-column header, keep original header
+  if (firstLine.includes('deck_title') || firstLine.includes('card_type')) {
+    return clean;
   }
 
-  const fixedRows: string[][] = [];
-  for (let i = dataStart; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    const row = parseCSVRow(line);
-    fixedRows.push(fixRow(row));
+  // If already contains legacy header, keep original clean text
+  if (firstLine.startsWith('front') && firstLine.includes('type')) {
+    return clean;
   }
 
-  return [CSV_HEADER, ...fixedRows.map(r => r.map(quoteField).join(','))].join('\n');
+  // If no header detected, prepend legacy header
+  return [LEGACY_CSV_HEADER, ...lines].join('\n');
 }
 
 export function isCSVInput(text: string): boolean {
-  const firstLine = text.trim().split(/\r?\n/)[0]?.trim() ?? '';
-  return /^front[,\t]/.test(firstLine);
+  const firstLine = text.trim().split(/\r?\n/)[0]?.trim().toLowerCase() ?? '';
+  return firstLine.startsWith('front') || firstLine.includes('deck_title') || firstLine.includes('card_type');
 }
