@@ -1,151 +1,195 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
+const getSRClass = () =>
+  typeof window !== "undefined"
+    ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    : null;
+
+function buildRecognition(
+  SRC: any,
+  onFinal: (text: string) => void,
+  onInterim: (text: string) => void,
+  onEnd: () => void,
+  onError: (err: string) => void
+) {
+  const r = new SRC();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = "en-US";
+  r.maxAlternatives = 1;
+
+  r.onresult = (event: any) => {
+    let final = "";
+    let interim = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) final += t + " ";
+      else interim += t;
+    }
+    if (final) onFinal(final);
+    if (interim !== undefined) onInterim(interim);
+  };
+
+  r.onerror = (e: any) => onError(e.error);
+  r.onend = onEnd;
+
+  return r;
+}
+
+// Continuous mode re-delivers the same finalized segment, so strip any tail of the
+// previously appended text that the new final starts with (e.g. "jeremy bentham" twice).
+function dedupeOverlap(prev: string, next: string): string {
+  const prevWords = prev.trim() ? prev.trim().split(/\s+/) : [];
+  const nextWords = next.trim() ? next.trim().split(/\s+/) : [];
+  if (!nextWords.length) return "";
+  if (!prevWords.length) return next.trim();
+  for (let n = Math.min(prevWords.length, nextWords.length); n >= 1; n--) {
+    if (prevWords.slice(-n).join(" ") === nextWords.slice(0, n).join(" ")) {
+      return nextWords.slice(n).join(" ");
+    }
+  }
+  return next.trim();
+}
+
 export function useSpeechRecognition() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [supported, setSupported] = useState(false);
-  const [micActive, setMicActive] = useState(false);
-
-  const recognitionRef = useRef<any>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const isListeningRef = useRef(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      setSupported(!!SR || !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
-    }
+    setSupported(!!getSRClass());
   }, []);
+
+  const activeRef = useRef<any>(null);     // currently running instance
+  const warmRef = useRef<any>(null);       // pre-warmed next instance
+  const userStoppedRef = useRef(false);    // did the user explicitly stop?
+  const isListeningRef = useRef(false);
+  const lastFinalRef = useRef("");         // last finalized text appended (dedupe helper)
+  isListeningRef.current = isListening;
+
+  // Pre-warm a new recognition instance in the background so it starts instantly
+  const prewarm = useCallback(() => {
+    const SRC = getSRClass();
+    if (!SRC || warmRef.current) return;
+    try {
+      const r = buildRecognition(SRC, () => {}, () => {}, () => {}, () => {});
+      warmRef.current = r;
+    } catch (_) {}
+  }, []);
+
+  const maxDurationTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    prewarm();
+    return () => {
+      if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current);
+    };
+  }, [prewarm]);
+
+  const startInstance = useCallback(() => {
+    const SRC = getSRClass();
+    if (!SRC) return;
+
+    setPermissionDenied(false);
+    // Use pre-warmed instance if available, otherwise create fresh
+    const r = warmRef.current ?? buildRecognition(SRC, () => {}, () => {}, () => {}, () => {});
+    warmRef.current = null;
+
+    r.onresult = (event: any) => {
+      let final = "";
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final += t + " ";
+        else interim += t;
+      }
+      if (final) {
+        const deduped = dedupeOverlap(lastFinalRef.current, final);
+        if (deduped) setTranscript((prev) => (prev + " " + deduped).trim());
+        lastFinalRef.current = final.trim();
+      }
+      setInterimTranscript(interim);
+    };
+
+    r.onerror = (e: any) => {
+      if (e.error === "not-allowed" || e.error === "permission-denied") {
+        userStoppedRef.current = true;
+        setIsListening(false);
+        setPermissionDenied(true);
+      } else if (e.error !== "no-speech" && e.error !== "aborted") {
+        userStoppedRef.current = true;
+        setIsListening(false);
+      }
+    };
+
+    r.onend = () => {
+      // If user didn't stop and we're still supposed to be listening, restart immediately
+      if (!userStoppedRef.current && isListeningRef.current) {
+        try {
+          startInstance();
+        } catch (_) {}
+      } else {
+        setIsListening(false);
+        setInterimTranscript("");
+        setTimeout(prewarm, 200);
+      }
+    };
+
+    try {
+      r.start();
+      activeRef.current = r;
+    } catch (e: any) {
+      if (e?.message?.includes("already started")) return;
+      userStoppedRef.current = true;
+      setIsListening(false);
+    }
+  }, [prewarm]);
 
   const stopListening = useCallback(() => {
-    isListeningRef.current = false;
+    userStoppedRef.current = true;
     setIsListening(false);
-    setMicActive(false);
     setInterimTranscript("");
-
-    // Stop and clean up recognition
-    try {
-      if (recognitionRef.current) {
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.stop();
-      }
-    } catch (_) {}
-    recognitionRef.current = null;
-
-    // Release microphone hardware tracks
-    if (mediaStreamRef.current) {
-      try {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      } catch (_) {}
-      mediaStreamRef.current = null;
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current)
+      maxDurationTimerRef.current = null;
     }
+    try {
+      activeRef.current?.stop();
+    } catch (_) {}
+    activeRef.current = null;
   }, []);
 
-  const startListening = useCallback(async () => {
-    if (typeof window === "undefined") return;
-
-    // Clean up previous instance
-    stopListening();
-
-    // 1. Acquire and lock active microphone audio stream
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaStreamRef.current = stream;
-        setMicActive(true);
-      }
-    } catch (err) {
-      console.warn("Could not acquire microphone stream:", err);
-    }
-
-    // 2. Start Speech Recognition
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SR) {
-      try {
-        const recognition = new SR();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-US";
-        recognition.maxAlternatives = 1;
-
-        recognition.onstart = () => {
-          isListeningRef.current = true;
-          setIsListening(true);
-        };
-
-        recognition.onresult = (event: any) => {
-          let final = "";
-          let interim = "";
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const res = event.results[i];
-            if (res.isFinal) {
-              final += res[0].transcript + " ";
-            } else {
-              interim += res[0].transcript;
-            }
-          }
-          if (final) {
-            setTranscript((prev) => (prev + " " + final).trim());
-          }
-          setInterimTranscript(interim);
-        };
-
-        recognition.onerror = (e: any) => {
-          console.warn("Speech recognition event:", e.error);
-          if (e.error === "not-allowed") {
-            stopListening();
-          }
-        };
-
-        recognition.onend = () => {
-          // If the user hasn't explicitly stopped, keep listening active
-          if (isListeningRef.current && mediaStreamRef.current?.active) {
-            try {
-              recognition.start();
-            } catch (_) {
-              // Ignore already started
-            }
-          } else {
-            setIsListening(false);
-          }
-        };
-
-        recognition.start();
-        recognitionRef.current = recognition;
-        isListeningRef.current = true;
-        setIsListening(true);
-        return;
-      } catch (err) {
-        console.warn("Speech recognition init:", err);
-      }
-    }
-
-    // Fallback: If Web Speech is not present, microphone is still actively recording
-    isListeningRef.current = true;
+  const startListening = useCallback(() => {
+    if (isListeningRef.current) return;
+    userStoppedRef.current = false;
+    setPermissionDenied(false);
+    setTranscript("");
+    setInterimTranscript("");
+    lastFinalRef.current = "";
     setIsListening(true);
-  }, [stopListening]);
+    startInstance();
+    // Cap a single session at 20s
+    if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current);
+    maxDurationTimerRef.current = setTimeout(() => {
+      if (isListeningRef.current) stopListening();
+    }, 20000);
+  }, [startInstance, stopListening]);
 
   const toggleListening = useCallback(() => {
-    if (isListeningRef.current || isListening) {
+    if (isListeningRef.current) {
       stopListening();
     } else {
       startListening();
     }
-  }, [isListening, startListening, stopListening]);
-
-  useEffect(() => {
-    return () => {
-      stopListening();
-    };
-  }, [stopListening]);
+  }, [startListening, stopListening]);
 
   return {
-    isListening: isListening || micActive,
+    isListening,
     transcript,
     interimTranscript,
+    permissionDenied,
     supported,
     startListening,
     stopListening,

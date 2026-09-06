@@ -36,6 +36,8 @@ export function FlashcardDeck({
     isListening,
     transcript,
     interimTranscript,
+    permissionDenied,
+    supported,
     toggleListening,
     stopListening,
     setTranscript,
@@ -294,11 +296,26 @@ export function FlashcardDeck({
                       ? "bg-[#34d399] text-[#0a0c10] scale-110 shadow-[0_0_25px_rgba(52,211,153,0.7)] animate-pulse"
                       : "bg-[#1a1e28] text-[#eef0f6] hover:bg-[#222733] hover:scale-105 border border-[rgba(255,255,255,0.1)]"
                   }`}
-                  title={isListening ? "Listening... click to stop" : "Click to speak answer"}
+                  title={
+                    permissionDenied
+                      ? "Microphone blocked - click address bar lock icon to allow"
+                      : isListening
+                      ? "Listening... click to stop"
+                      : "Click to speak answer"
+                  }
                 >
                   {isListening ? <Mic size={26} /> : <MicOff size={26} />}
                 </button>
               </div>
+
+              {permissionDenied && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-center animate-in fade-in max-w-sm"
+                >
+                  <span>⚠️ Microphone blocked in browser. Click the 🔒 icon in the address bar to allow mic access.</span>
+                </div>
+              )}
 
               <div className="flex flex-col items-center h-6">
                 <span className="text-xs text-[#34d399] font-bold">
