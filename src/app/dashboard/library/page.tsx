@@ -103,17 +103,30 @@ export default function LibraryPage() {
         }
 
         if (commData.success && commData.data?.length > 0) {
+          const formatYear = (y: any) => {
+            if (y === 1 || y === "1" || y === "1st Year") return "1st Year";
+            if (y === 2 || y === "2" || y === "2nd Year") return "2nd Year";
+            if (y === 3 || y === "3" || y === "3rd Year") return "3rd Year";
+            if (y === 4 || y === "4" || y === "4th Year") return "4th Year";
+            return String(y || "2nd Year");
+          };
+          const formatSem = (s: any) => {
+            if (s === 1 || s === "1" || s === "1st Sem") return "1st Sem";
+            if (s === 2 || s === "2" || s === "2nd Sem") return "2nd Sem";
+            return String(s || "1st Sem");
+          };
+
           const commItems: LibraryItem[] = commData.data.map((d: any) => ({
             id: d.id,
             title: d.title,
-            author: d.authorName || "ACLC Student",
+            author: d.authorName ? `${d.authorName} · Student Author` : "ACLC Student",
             type: "FLASHCARD",
             status: "AVAILABLE",
-            course: d.course || "BSIT",
-            yearLevel: d.yearLevel || "2nd Year",
-            semester: d.semester || "1st Sem",
+            course: d.program || d.course || "BSIT",
+            yearLevel: formatYear(d.yearLevel),
+            semester: formatSem(d.semester),
             tags: d.tags || ["Flashcards", "Review"],
-            cardCount: d.cardCount || 10,
+            cardCount: d.cardCount || 6,
             cardsCsv: d.cardsCsv,
           }));
           combined = [
