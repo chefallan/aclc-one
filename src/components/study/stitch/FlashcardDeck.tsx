@@ -118,11 +118,14 @@ export function FlashcardDeck({
   const [userAnswer, setUserAnswer] = React.useState("");
   const [isCorrectState, setIsCorrectState] = React.useState<boolean | null>(null);
 
+  const stopListeningRef = React.useRef(stopListening);
+  stopListeningRef.current = stopListening;
+
   React.useEffect(() => {
     if (isFlipped) {
-      stopListening();
+      stopListeningRef.current();
     }
-  }, [isFlipped, stopListening]);
+  }, [isFlipped]);
 
   React.useEffect(() => {
     if (transcript || interimTranscript) {

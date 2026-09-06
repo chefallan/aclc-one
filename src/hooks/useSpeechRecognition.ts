@@ -1,177 +1,173 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect } from "react";
 
-const getSRClass = () =>
-  typeof window !== 'undefined'
-    ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    : null
+const getSRClass = () => {
+  if (typeof window === "undefined") return null;
+  return (
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition ||
+    (window as any).mozSpeechRecognition ||
+    (window as any).msSpeechRecognition ||
+    null
+  );
+};
 
-function buildRecognition(
-  SRC: any,
-  onFinal: (text: string) => void,
-  onInterim: (text: string) => void,
-  onEnd: () => void,
-  onError: (err: string) => void
-) {
-  const r = new SRC()
-  r.continuous = true
-  r.interimResults = true
-  r.lang = 'en-US'
-  r.maxAlternatives = 1
-
-  r.onresult = (event: any) => {
-    let final = ''
-    let interim = ''
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const t = event.results[i][0].transcript
-      if (event.results[i].isFinal) final += t + ' '
-      else interim += t
-    }
-    if (final) onFinal(final)
-    if (interim !== undefined) onInterim(interim)
-  }
-
-  r.onerror = (e: any) => onError(e.error)
-  r.onend = onEnd
-
-  return r
-}
-
-// Continuous mode re-delivers the same finalized segment, so strip any tail of the
-// previously appended text that the new final starts with (e.g. "jeremy bentham" twice).
+// Continuous mode re-delivers finalized segments; deduplicate overlap
 function dedupeOverlap(prev: string, next: string): string {
-  const prevWords = prev.trim() ? prev.trim().split(/\s+/) : []
-  const nextWords = next.trim() ? next.trim().split(/\s+/) : []
-  if (!nextWords.length) return ''
-  if (!prevWords.length) return next.trim()
+  const prevWords = prev.trim() ? prev.trim().split(/\s+/) : [];
+  const nextWords = next.trim() ? next.trim().split(/\s+/) : [];
+  if (!nextWords.length) return "";
+  if (!prevWords.length) return next.trim();
   for (let n = Math.min(prevWords.length, nextWords.length); n >= 1; n--) {
-    if (prevWords.slice(-n).join(' ') === nextWords.slice(0, n).join(' ')) {
-      return nextWords.slice(n).join(' ')
+    if (prevWords.slice(-n).join(" ") === nextWords.slice(0, n).join(" ")) {
+      return nextWords.slice(n).join(" ");
     }
   }
-  return next.trim()
+  return next.trim();
 }
 
 export function useSpeechRecognition() {
-  const [isListening, setIsListening] = useState(false)
-  const [transcript, setTranscript] = useState('')
-  const [interimTranscript, setInterimTranscript] = useState('')
-  const [supported] = useState(() => !!getSRClass())
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [supported, setSupported] = useState(false);
 
-  const activeRef = useRef<any>(null)     // currently running instance
-  const warmRef = useRef<any>(null)       // pre-warmed next instance
-  const userStoppedRef = useRef(false)    // did the user explicitly stop?
-  const isListeningRef = useRef(false)
-  const lastFinalRef = useRef('')         // last finalized text appended (dedupe helper)
-  isListeningRef.current = isListening
-
-  // Pre-warm a new recognition instance in the background so it starts instantly
-  const prewarm = useCallback(() => {
-    const SRC = getSRClass()
-    if (!SRC || warmRef.current) return
-    try {
-      const r = buildRecognition(SRC, () => {}, () => {}, () => {}, () => {})
-      warmRef.current = r
-    } catch (_) {}
-  }, [])
-
-  const maxDurationTimerRef = useRef<any>(null)
+  const activeRef = useRef<any>(null);
+  const isListeningRef = useRef(false);
+  const userStoppedRef = useRef(false);
+  const lastFinalRef = useRef("");
+  const timerRef = useRef<any>(null);
 
   useEffect(() => {
-    prewarm()
-    return () => {
-      if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
-    }
-  }, [prewarm])
+    setSupported(!!getSRClass());
+  }, []);
 
-  const startInstance = useCallback(() => {
-    const SRC = getSRClass()
-    if (!SRC) return
+  const stopListening = useCallback(() => {
+    userStoppedRef.current = true;
+    isListeningRef.current = false;
+    setIsListening(false);
+    setInterimTranscript("");
 
-    // Use pre-warmed instance if available, otherwise create fresh
-    const r = warmRef.current ?? buildRecognition(SRC, () => {}, () => {}, () => {}, () => {})
-    warmRef.current = null
-
-    r.onresult = (event: any) => {
-      let final = ''
-      let interim = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript
-        if (event.results[i].isFinal) final += t + ' '
-        else interim += t
-      }
-      if (final) {
-        const deduped = dedupeOverlap(lastFinalRef.current, final)
-        if (deduped) setTranscript(prev => prev + deduped + ' ')
-        lastFinalRef.current = final.trim()
-      }
-      setInterimTranscript(interim)
-    }
-
-    r.onerror = (e: any) => {
-      // 'no-speech' is normal — ignore and let onend handle restart
-      if (e.error !== 'no-speech' && e.error !== 'aborted') {
-        userStoppedRef.current = true
-        setIsListening(false)
-      }
-    }
-
-    r.onend = () => {
-      // If user didn't stop and we're still supposed to be listening, restart immediately
-      if (!userStoppedRef.current && isListeningRef.current) {
-        // Immediately fire a fresh instance — no delay
-        try {
-          startInstance()
-        } catch (_) {}
-      } else {
-        setIsListening(false)
-        setInterimTranscript('')
-        // Pre-warm next instance for instant start next time
-        setTimeout(prewarm, 200)
-      }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
 
     try {
-      r.start()
-      activeRef.current = r
-    } catch (e: any) {
-      // 'already started' — ignore
-      if (e?.message?.includes('already started')) return
-      userStoppedRef.current = true
-      setIsListening(false)
-    }
-  }, [prewarm])
+      if (activeRef.current) {
+        activeRef.current.onresult = null;
+        activeRef.current.onerror = null;
+        activeRef.current.onend = null;
+        activeRef.current.stop();
+      }
+    } catch (_) {}
+    activeRef.current = null;
+  }, []);
 
-  const stopListening = useCallback(() => {
-    userStoppedRef.current = true
-    setIsListening(false)
-    setInterimTranscript('')
-    if (maxDurationTimerRef.current) {
-      clearTimeout(maxDurationTimerRef.current)
-      maxDurationTimerRef.current = null
+  const createAndStartRecognition = useCallback(() => {
+    const SRC = getSRClass();
+    if (!SRC) return;
+
+    try {
+      const r = new SRC();
+      r.continuous = true;
+      r.interimResults = true;
+      r.lang = "en-US";
+      r.maxAlternatives = 1;
+
+      r.onstart = () => {
+        isListeningRef.current = true;
+        setIsListening(true);
+      };
+
+      r.onresult = (event: any) => {
+        let final = "";
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0]?.transcript || "";
+          if (event.results[i].isFinal) final += t + " ";
+          else interim += t;
+        }
+
+        if (final) {
+          const deduped = dedupeOverlap(lastFinalRef.current, final);
+          if (deduped) {
+            setTranscript((prev) => (prev + " " + deduped).trim());
+          }
+          lastFinalRef.current = final.trim();
+        }
+        setInterimTranscript(interim);
+      };
+
+      r.onerror = (e: any) => {
+        console.warn("Speech recognition event:", e.error);
+        if (e.error === "not-allowed" || e.error === "audio-capture") {
+          userStoppedRef.current = true;
+          isListeningRef.current = false;
+          setIsListening(false);
+        }
+        // For 'no-speech' or 'aborted', let onend handle continuous listening
+      };
+
+      r.onend = () => {
+        if (!userStoppedRef.current && isListeningRef.current) {
+          // Restart a fresh instance seamlessly without freezing
+          try {
+            createAndStartRecognition();
+          } catch (_) {
+            setIsListening(false);
+          }
+        } else {
+          setIsListening(false);
+          setInterimTranscript("");
+        }
+      };
+
+      r.start();
+      activeRef.current = r;
+      isListeningRef.current = true;
+      setIsListening(true);
+    } catch (err: any) {
+      if (!err?.message?.includes("already started")) {
+        console.error("Speech recognition start error:", err);
+        setIsListening(false);
+        isListeningRef.current = false;
+      }
     }
-    try { activeRef.current?.stop() } catch (_) {}
-    activeRef.current = null
-  }, [])
+  }, []);
 
   const startListening = useCallback(() => {
-    if (isListeningRef.current) return
-    userStoppedRef.current = false
-    setTranscript('')
-    setInterimTranscript('')
-    lastFinalRef.current = ''
-    setIsListening(true)
-    startInstance()
-    // Cap a single session at 20s — silence no longer stops it, so bound mic usage
-    if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
-    maxDurationTimerRef.current = setTimeout(() => {
-      if (isListeningRef.current) stopListening()
-    }, 20000)
-  }, [startInstance, stopListening])
+    if (isListeningRef.current) return;
+    userStoppedRef.current = false;
+    isListeningRef.current = true;
+    setIsListening(true);
+    setTranscript("");
+    setInterimTranscript("");
+    lastFinalRef.current = "";
+
+    createAndStartRecognition();
+
+    // Max 30 seconds listening session
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (isListeningRef.current) {
+        stopListening();
+      }
+    }, 30000);
+  }, [createAndStartRecognition, stopListening]);
 
   const toggleListening = useCallback(() => {
-    if (isListeningRef.current) stopListening()
-    else startListening()
-  }, [startListening, stopListening])
+    if (isListeningRef.current) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }, [startListening, stopListening]);
+
+  useEffect(() => {
+    return () => {
+      stopListening();
+    };
+  }, [stopListening]);
 
   return {
     isListening,
@@ -182,5 +178,5 @@ export function useSpeechRecognition() {
     stopListening,
     toggleListening,
     setTranscript,
-  }
+  };
 }
