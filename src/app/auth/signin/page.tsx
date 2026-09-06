@@ -253,6 +253,67 @@ function SignInForm() {
         </p>
       </form>
 
+      {/* Dev / Demo Role Quick-Fill & Bypass */}
+      <div className="border-t border-hairline bg-surface-sunk/60 px-6 py-4">
+        <p className="mb-2.5 text-center text-xs font-semibold uppercase tracking-wider text-content-muted">
+          ⚡ 1-Click Dev / Demo Login Bypass
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-xs font-medium hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/40"
+            onClick={() => {
+              setEmail("juan.delacruz@student.aclcormoc.edu.ph");
+              setPassword("password123");
+              setRole("student");
+            }}
+          >
+            🎓 Student
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-xs font-medium hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/40"
+            onClick={() => {
+              setEmail("teacher@aclcormoc.edu.ph");
+              setPassword("password123");
+              setRole("faculty");
+            }}
+          >
+            👩‍🏫 Teacher
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-xs font-medium hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/40"
+            onClick={() => {
+              setEmail("admin@aclcormoc.edu.ph");
+              setPassword("password123");
+              setRole("staff");
+            }}
+          >
+            🛡️ Admin
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-xs font-medium hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950/40"
+            onClick={() => {
+              setEmail("supervisor@techsolutions.ph");
+              setPassword("password123");
+              setRole("staff");
+            }}
+          >
+            🏢 Supervisor
+          </Button>
+        </div>
+      </div>
+
       <div className="border-t border-hairline bg-surface-sunk px-6 py-4 text-center text-sm text-content-muted">
         Setting up a school?{" "}
         <Link
