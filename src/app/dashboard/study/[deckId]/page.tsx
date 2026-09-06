@@ -1023,6 +1023,33 @@ export default function StudyDashboard() {
         )}
 
         {/* ========================================================================= */}
+        {/* 7.5 FILL IN THE BLANKS MODE                                               */}
+        {/* ========================================================================= */}
+        {activeMode === "blanks" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {(() => {
+              const combinedText = cards
+                .map((c) => `${c.front}: ${c.back || c.id_answer || ""}. ${c.explanation || ""}`)
+                .join("\n\n");
+              const tokens = parseBlanks(
+                combinedText || "Virtual Memory provides contiguous abstraction over main RAM.",
+                0.25
+              );
+              return (
+                <FillInTheBlanksUI
+                  tokens={tokens}
+                  documentTitle={`${deck?.title || "Deck"} — Smart Blanks`}
+                  onReset={() => {
+                    switchMode(null);
+                    setTimeout(() => switchMode("blanks"), 50);
+                  }}
+                />
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
         {/* 8. STUDY NOTES ACTIVE RECALL (hideBold Masking)                          */}
         {/* ========================================================================= */}
         {activeMode === "notes" && (
