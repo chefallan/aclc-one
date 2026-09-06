@@ -341,7 +341,16 @@ export default function LibraryPage() {
         </div>
 
         {/* 3 Unified Tabs: Library | Create Flashcards | Buddies */}
-        <StudyTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <StudyTabs
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            if (tab === "buddies") {
+              router.push("/dashboard/study-buddy");
+            } else {
+              setActiveTab(tab);
+            }
+          }}
+        />
       </div>
 
       {/* ─── TAB 1: LIBRARY CATALOG ─── */}

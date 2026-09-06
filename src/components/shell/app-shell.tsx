@@ -104,7 +104,7 @@ export function AppShell({ role, name, identifier, children }: AppShellProps) {
   const [topHovered, setTopHovered] = React.useState(false);
   const [bottomHovered, setBottomHovered] = React.useState(false);
 
-  const isStudyMode = pathname?.startsWith("/dashboard/study") ?? false;
+  const isStudyMode = (pathname?.startsWith("/dashboard/study/") && !pathname?.startsWith("/dashboard/study-buddy")) ?? false;
   const items = NAV[role] ?? NAV.STUDENT;
   const isStudent = role === "STUDENT";
   const hasSidebar = !isStudent;

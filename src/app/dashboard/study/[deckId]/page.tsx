@@ -31,16 +31,19 @@ import {
   TableProperties,
   UploadCloud,
   Copy,
+  FileText,
 } from "lucide-react";
 import { TopBar } from "@/components/study/stitch/TopBar";
 import { ProgressRing } from "@/components/study/stitch/ProgressRing";
 import { StatBadge } from "@/components/study/stitch/StatBadge";
 import { ModeCard } from "@/components/study/stitch/ModeCard";
+import { parseBlanks, TextToken } from "@/lib/study/parseBlanks";
+import { FillInTheBlanksUI } from "@/components/study/stitch/FillInTheBlanksUI";
+import { PastePopup } from "@/components/study/stitch/PastePopup";
 import { MCOption, type MCOptionState } from "@/components/study/stitch/MCOption";
 import { FormattedNoteText } from "@/components/study/stitch/FormattedNoteText";
 import { FlashcardDeck } from "@/components/study/stitch/FlashcardDeck";
 import { QuizProgressBar } from "@/components/study/stitch/QuizProgressBar";
-import { FillInTheBlanksUI } from "@/features/blanks/FillInTheBlanksUI";
 import { PublishDeckModal } from "@/components/study/PublishDeckModal";
 import { DeckImageGallery } from "@/components/study/DeckImageGallery";
 import { FlashcardListView } from "@/components/study/FlashcardListView";
@@ -680,6 +683,13 @@ export default function StudyDashboard() {
                     disabled={enumCount === 0}
                     icon={<List className="size-5 text-rose-400" />}
                     onClick={enumCount > 0 ? () => switchMode("enumeration") : undefined}
+                  />
+                  <ModeCard
+                    title="Fill in Blanks"
+                    description="Compromise NLP entity-based smart cloze recall & voice dictation"
+                    count={`${cards.length} Topics`}
+                    icon={<FileText className="size-5 text-teal-400" />}
+                    onClick={() => switchMode("blanks")}
                   />
                   <ModeCard
                     title="Study Notes"

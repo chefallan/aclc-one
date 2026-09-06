@@ -238,10 +238,10 @@ export default function StudyBuddyPage() {
     // One height at every width, deliberately. A student keeps the bottom tab
     // bar on a desktop too, so the old md: override - which assumed the wider
     // screen had less chrome - ran the composer underneath it.
-    <div className="mx-auto flex h-[calc(100dvh-10.5rem)] max-w-3xl flex-col">
+    <div className="mx-auto flex h-[calc(100dvh-10.5rem)] max-w-6xl flex-col p-4 md:p-8 animate-in fade-in duration-200">
       <header className="flex items-center justify-between gap-3 pb-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             Study Buddy
             <Sparkles className="size-4.5 text-buddy-500" aria-hidden />
           </h1>
@@ -252,13 +252,15 @@ export default function StudyBuddyPage() {
         </div>
         {!empty && (
           <Button variant="outline" size="sm" onClick={newChat}>
-            <Plus className="size-4" />
+            <Plus className="size-4 mr-1.5" />
             New chat
           </Button>
         )}
       </header>
 
-      <StudyTabs className="mb-3" />
+      <StudyTabs className="mb-4" activeTab="buddies" />
+
+      <div className="mx-auto w-full max-w-3xl flex-1 flex flex-col min-h-0">
 
       <div
         className="flex-1 space-y-4 overflow-y-auto pb-4"
@@ -329,6 +331,7 @@ export default function StudyBuddyPage() {
           Study Buddy can be wrong. Check anything that matters against your notes.
         </p>
       </form>
+      </div>
     </div>
   );
 }
